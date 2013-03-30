@@ -1,0 +1,29 @@
+{% extends 'base.html.j2' %}
+
+{% block content %}
+			{#- <div class='navbar navbar'>
+				<div class='navbar-inner'>
+					<div class='container'>
+						<a class='btn btn pull-right' href='#'><i class='icon-refresh'></i></a>
+						<a class='btn btn pull-right' href='#'><i class='icon-ok'></i></a>
+					</div>
+				</div>
+			</div> #}
+			<div class='row span14 screen-height'>
+				<div class='feed-list span3 screen-height'>
+					<div class='feed-control'>
+						<a id='mark-all-as-read' class='btn btn-mini btn-primary'>
+							Mark all as read
+						</a>
+						<a id='refresh-feed' class='btn btn-mini btn-success' data-loading-text='Refreshing...'>
+							Refresh feed
+						</a>
+					</div>
+					<!-- <hr> -->
+					{% include 'includes/feed_list.html.j2' with context %}
+				</div>
+				<div class='article-list span11 screen-height'>
+					{% include 'includes/article_list.html.j2' with context %}
+				</div>
+			</div>
+{%- endblock %}

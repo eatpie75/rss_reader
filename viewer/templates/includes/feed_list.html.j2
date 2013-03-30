@@ -1,0 +1,10 @@
+					<ul>
+						<li class='feed-row' id='feed-0' data-id='0'>
+							Unread Items <small>({{unread_count}})</small>
+						</li>
+						{%- for feed in feeds %}
+						<li class='feed-row' id='feed-{{feed.id}}' data-id='{{feed.id}}'>
+							{{feed.title[:30]}} <small>({{feed.unread_count}})</small>
+						</li>
+						{%- endfor %}
+					</ul>

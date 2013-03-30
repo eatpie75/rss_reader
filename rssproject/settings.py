@@ -13,7 +13,7 @@ MANAGERS = ADMINS
 
 DATABASES = {
 	'default': {
-		'ENGINE':	'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+		'ENGINE':	'django.db.backends.postgresql_psycopg2',  # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
 		'NAME':		'rss',                      # Or path to database file if using sqlite3.
 		# The following settings are not used with sqlite3:
 		'USER':		'django',
@@ -26,6 +26,7 @@ DATABASES = {
 # Hosts/domain names that are valid for this site; required if DEBUG is False
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = []
+INTERNAL_IPS=('127.0.0.1',)
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -94,7 +95,14 @@ TEMPLATE_LOADERS = (
 	# 'django.template.loaders.eggs.Loader',
 )
 
+from django.utils import safestring
+if not hasattr(safestring, '__html__'):
+	safestring.SafeString.__html__ = lambda self: str(self)
+	safestring.SafeUnicode.__html__ = lambda self: unicode(self)
+
 MIDDLEWARE_CLASSES = (
+	'django.middleware.gzip.GZipMiddleware',
+	'debug_toolbar.middleware.DebugToolbarMiddleware',
 	'django.middleware.common.CommonMiddleware',
 	'django.contrib.sessions.middleware.SessionMiddleware',
 	'django.middleware.csrf.CsrfViewMiddleware',
@@ -104,10 +112,20 @@ MIDDLEWARE_CLASSES = (
 	# 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'rss.urls'
+TEMPLATE_CONTEXT_PROCESSORS=(
+	"django.contrib.auth.context_processors.auth",
+	"django.core.context_processors.debug",
+	"django.core.context_processors.i18n",
+	"django.core.context_processors.media",
+	"django.core.context_processors.static",
+	"django.core.context_processors.tz",
+	"django.contrib.messages.context_processors.messages",
+)
+
+ROOT_URLCONF = 'rssproject.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
-WSGI_APPLICATION = 'rss.wsgi.application'
+WSGI_APPLICATION = 'rssproject.wsgi.application'
 
 TEMPLATE_DIRS = (
 	# Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
@@ -125,8 +143,21 @@ INSTALLED_APPS = (
 	# Uncomment the next line to enable the admin:
 	'django.contrib.admin',
 	# Uncomment the next line to enable admin documentation:
-	'django.contrib.admindocs',
+	# 'django.contrib.admindocs',
+	'south',
+	'feeds',
+	'viewer',
+	'django_extensions',
+	'debug_toolbar'
 )
+
+DEFAULT_FEED_UPDATE_INTERVAL=60
+DEFAULT_ARTICLE_PURGE_INTERVAL=30
+PURGE_UNREAD=False
+
+DEBUG_TOOLBAR_CONFIG= {
+	'INTERCEPT_REDIRECTS': False,
+}
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to

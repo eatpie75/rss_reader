@@ -1,0 +1,21 @@
+					<ul>
+						{%- for article in articles %}
+						<li class='article-row{% if article.read %} read{% endif %}' id='article-{{article.id}}'
+						data-id='{{article.pk}}'>
+							<div class='article-row-title'>
+								<img class='feed-icon' src='{{STATIC_URL}}img/rss.png'>
+								<div class='article-feed-name'>{{article.feed.title}}</div>
+								<div class='article-title'>{{article.title|safe}}</div>
+								<div class='article-date'>{{article.date_published_relative}}</div>
+							</div>
+							<div class='article-content'>
+								<div class='article-content-title'>
+									<h2><a href='{{article.url}}' target='_blank'>{{article.title[:90]|safe}}</a></h2>
+								</div><br>
+								{{article.content|safe}}
+								<div class='article-content-footer'>
+								</div>
+							</div>
+						</li>
+						{%- endfor %}
+					</ul>
