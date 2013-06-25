@@ -1,10 +1,11 @@
-import feedparser
+import socket
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from feeds import feedparser
 from pytz import timezone
 from time import mktime
 
@@ -17,6 +18,7 @@ class Feed(models.Model):
 	update_interval=models.IntegerField(default=0)
 	purge_interval=models.IntegerField(default=0)
 	category=models.ForeignKey('Category', blank=True, null=True)
+	enabled=models.BooleanField(default=True)
 
 	@property
 	def unread_count(self):
@@ -34,28 +36,34 @@ class Feed(models.Model):
 			self.update(feed)
 
 	def update(self, feed=None):
+		if not self.enabled:
+			return 0
+		old_timeout=socket.getdefaulttimeout()
+		socket.setdefaulttimeout(25.0)
+		i=0
+		print("Updating {}:".format(self.title)),
 		if feed is None:
 			feed=feedparser.parse(self.feed_url)
-		if feed.status not in (404, 410, 500):
-			print("Updating {}".format(self.title))
+		if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
 			for entry in feed.entries:
 				if 'id' in entry:
 					entry_id=entry.id
 				else:
 					entry_id=entry.link
-				now=datetime.now(timezone('UTC'))
+				now=datetime.utcnow()
 				if Article.objects.filter(feed=self, guid=entry_id).exists():
-					Article.objects.filter(feed=self, guid=entry_id).update(date_last_seen=now)
+					Article.objects.filter(feed=self, guid=entry_id).update(date_last_seen=timezone('utc').localize(now))
 					continue
-				if 'published_parsed' in entry:
-					date=datetime.fromtimestamp(mktime(entry.published_parsed))
+				i+=1
+				if 'published_parsed' in entry and entry.published_parsed is not None:
+					date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.published_parsed)))
 					if 'updated_parsed' in entry:
-						update_date=datetime.fromtimestamp(mktime(entry.updated_parsed))
+						update_date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
 					else:
-						update_date=datetime.fromtimestamp(mktime(entry.published_parsed))
+						update_date=date
 				elif 'updated_parsed' in entry:
-					date=datetime.fromtimestamp(mktime(entry.updated_parsed))
-					update_date=datetime.fromtimestamp(mktime(entry.updated_parsed))
+					date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
+					update_date=date
 				else:
 					date=now
 					update_date=now
@@ -64,10 +72,10 @@ class Feed(models.Model):
 					guid=entry_id,
 					title=entry.title,
 					url=entry.link,
-					date_added=now,
-					date_published=date,
-					date_updated=update_date,
-					date_last_seen=now
+					date_added=timezone('utc').localize(now),
+					date_published=timezone('utc').localize(date),
+					date_updated=timezone('utc').localize(update_date),
+					date_last_seen=timezone('utc').localize(now)
 				)
 				if 'content' in entry:
 					article.content=unicode(BeautifulSoup(entry.content[0]['value']).body)[6:-7]
@@ -79,9 +87,17 @@ class Feed(models.Model):
 					article.content=entry.title
 					article.description=entry.title[:500]
 				article.save()
-			self.last_updated=datetime.now(timezone('utc'))
+			print('Added {} new article(s)'.format(i))
+			self.last_updated=timezone('utc').localize(datetime.utcnow())
 			self.save()
-		self.purge()
+		elif feed.bozo:
+			print(feed.bozo_exception)
+			# print(type(feed.bozo_exception))
+			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
+			if 'status' in feed: print(feed.status)
+		# self.purge()
+		socket.setdefaulttimeout(old_timeout)
+		return i
 
 	def purge(self):
 		interval=self.purge_interval if self.purge_interval!=0 else settings.DEFAULT_ARTICLE_PURGE_INTERVAL
@@ -101,7 +117,7 @@ class Feed(models.Model):
 
 class Article(models.Model):
 	feed=models.ForeignKey(Feed)
-	guid=models.CharField(max_length=200)
+	guid=models.CharField(db_index=True, max_length=200)
 	title=models.CharField(max_length=500)
 	author=models.CharField(max_length=250, blank=True, null=True)
 	date_added=models.DateTimeField()
@@ -111,15 +127,17 @@ class Article(models.Model):
 	description=models.TextField(blank=True, null=True)
 	content=models.TextField(blank=True, null=True)
 	url=models.URLField()
-	read=models.BooleanField(default=False)
+	read=models.BooleanField(db_index=True, default=False)
 
 	@property
 	def date_published_relative(self):
 		now=datetime.now(timezone('UTC'))
 		if now.day==self.date_published.day:
-			return self.date_published.strftime('%I:%M %p')
+			# return self.date_published.strftime('%I:%M %p')
+			return self.date_published.astimezone(timezone('America/Los_Angeles')).strftime('%I:%M %p')
 		else:
-			return self.date_published.strftime('%b %d, %Y')
+			# return self.date_published.strftime('%b %d, %Y')
+			return self.date_published.astimezone(timezone('America/Los_Angeles')).strftime('%b %d, %Y')
 
 	def __unicode__(self):
 		return unicode(self.title)
@@ -144,3 +162,9 @@ class Category(models.Model):
 def add_feed(sender, **kwargs):
 	if kwargs['created']:
 		kwargs['instance'].initialize()
+
+
+def fix_timestamp_dst(tt):
+	tt=list(tt)
+	tt[-1]=-1
+	return tt

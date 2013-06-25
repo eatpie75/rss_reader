@@ -10,9 +10,11 @@
 							</div>
 							<div class='article-content'>
 								<div class='article-content-title'>
-									<h2><a href='{{article.url}}' target='_blank'>{{article.title[:90]|safe}}</a></h2>
+									<h2><a href='{{article.url}}' target='_blank'>{{article.title|safe}}</a></h2>
 								</div><br>
-								{{article.content|safe}}
+								<div class='article-content-main' data-loaded='false'>
+									{# {{article.content|safe}} #}
+								</div>
 								<div class='article-content-footer'>
 								</div>
 							</div>

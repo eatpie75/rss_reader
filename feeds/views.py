@@ -1,8 +1,9 @@
 from coffin.shortcuts import render_to_response
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.http import HttpResponse
 from django.template import RequestContext
 from models import Feed, Article
+from pytz import timezone
 import json
 
 
@@ -55,9 +56,11 @@ def refresh_feed(request, feed):
 		feed.update()
 		data.append({'feed':feed.pk, 'count':feed.unread_count})
 	else:
-		for feed in Feed.objects.all():
-			feed.update()
+		new_articles=0
+		for feed in Feed.objects.filter(last_updated__lt=datetime.now(timezone('utc'))-timedelta(minutes=10)):
+			new_articles+=feed.update()
 			data.append({'feed':feed.pk, 'count':feed.unread_count})
+		print('{} new article(s)'.format(new_articles))
 	unread_count=Article.objects.filter(read=False).count()
 	data.append({'feed':0, 'count':unread_count})
 	return HttpResponse(json.dumps(data), mimetype='application/json')
@@ -73,8 +76,10 @@ def view_feed_articles(request, feed):
 	if feed!=0:
 		feed=Feed.objects.get(pk=feed)
 		articles=Article.objects.filter(feed=feed)
-		if 'read' not in request.GET:
+		if 'all' not in request.GET:
 			articles=articles.filter(read=False)
 	else:
-		articles=Article.objects.filter(read=False)
-	return render_to_response('includes/article_list.html.j2', {'articles':articles}, RequestContext(request))
+		articles=Article.objects.all()
+		if 'all' not in request.GET:
+			articles=Article.objects.filter(read=False)
+	return render_to_response('includes/article_list.html.j2', {'articles':articles[:50]}, RequestContext(request))
