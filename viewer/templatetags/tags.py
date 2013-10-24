@@ -1,8 +1,8 @@
-from coffin import template
+from django_jina.base import Library
 # from datetime import datetime
 from pytz import timezone as tz
 
-register = template.Library()
+register = Library()
 
 
 # @register.filter

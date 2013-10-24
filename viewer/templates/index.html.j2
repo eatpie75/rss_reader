@@ -9,24 +9,23 @@
 					</div>
 				</div>
 			</div> #}
-			<div class='row span14 screen-height'>
-				<div class='feed-list span3 screen-height'>
+			<div class='row col-md-14 screen-height'>
+				<div class='feed-list col-md-3 screen-height'>
 					<div class='feed-control'>
-						<a id='mark-all-read' class='btn btn-mini btn-primary'>
+						<a id='mark-all-read' class='btn btn-xs btn-primary'>
 							Mark all as read
 						</a>
-						<a id='refresh-feed' class='btn btn-mini btn-success' data-loading-text='Refreshing...'>
-							Refresh feed
+						<a id='refresh-feed' class='btn btn-xs btn-success' data-loading-text='Refreshing...'>
+							Refresh
 						</a>
-						<a id='filter-read' class='btn btn-mini btn-info'>
-							<i class='icon-filter'></i>
+						<a id='filter-read' class='btn btn-xs btn-info'>
+							<span class='glyphicon glyphicon-filter'></span>
 						</a>
 					</div>
-					<!-- <hr> -->
-					{% include 'includes/feed_list.html.j2' with context %}
+{% include 'includes/feed_list.html.j2' with context %}
 				</div>
-				<div class='article-list span11 screen-height'>
-					{% include 'includes/article_list.html.j2' with context %}
+				<div class='article-list col-md-11 screen-height'>
+{% include 'includes/article_list.html.j2' with context %}
 				</div>
 			</div>
 {%- endblock %}

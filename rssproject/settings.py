@@ -90,19 +90,14 @@ SECRET_KEY = 'fpd4#g2#o!_u67@5#&a)a)rqma&pbe4m@+y*_i@h-ah4qc-*0e'
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
-	'django.template.loaders.filesystem.Loader',
-	'django.template.loaders.app_directories.Loader',
-	# 'django.template.loaders.eggs.Loader',
+    'django_jinja.loaders.AppLoader',
+    'django_jinja.loaders.FileSystemLoader',
 )
 
-from django.utils import safestring
-if not hasattr(safestring, '__html__'):
-	safestring.SafeString.__html__ = lambda self: str(self)
-	safestring.SafeUnicode.__html__ = lambda self: unicode(self)
+DEFAULT_JINJA2_TEMPLATE_EXTENSION = '.html.j2'
 
 MIDDLEWARE_CLASSES = (
 	'django.middleware.gzip.GZipMiddleware',
-	'debug_toolbar.middleware.DebugToolbarMiddleware',
 	'django.middleware.common.CommonMiddleware',
 	'django.contrib.sessions.middleware.SessionMiddleware',
 	'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,6 +115,7 @@ TEMPLATE_CONTEXT_PROCESSORS=(
 	"django.core.context_processors.static",
 	"django.core.context_processors.tz",
 	"django.contrib.messages.context_processors.messages",
+	"viewer.context_processors.ajax_base",
 )
 
 ROOT_URLCONF = 'rssproject.urls'
