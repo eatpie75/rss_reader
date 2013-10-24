@@ -3,7 +3,7 @@ from models import Feed, Article, Category
 
 
 class FeedAdmin(admin.ModelAdmin):
-	list_display=('title', 'last_updated')
+	list_display=('title', 'last_fetched', 'last_updated')
 	actions=['force_update',]
 
 	def force_update(self, request, qs):

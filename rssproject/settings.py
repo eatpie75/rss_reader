@@ -28,6 +28,8 @@ DATABASES = {
 ALLOWED_HOSTS = []
 INTERNAL_IPS=('127.0.0.1',)
 
+SESSION_COOKIE_NAME='rss_session'
+
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
@@ -133,7 +135,7 @@ INSTALLED_APPS = (
 	'django.contrib.auth',
 	'django.contrib.contenttypes',
 	'django.contrib.sessions',
-	'django.contrib.sites',
+	# 'django.contrib.sites',
 	'django.contrib.messages',
 	'django.contrib.staticfiles',
 	# Uncomment the next line to enable the admin:
@@ -143,43 +145,14 @@ INSTALLED_APPS = (
 	'south',
 	'feeds',
 	'viewer',
-	'django_extensions',
-	'debug_toolbar'
+	'django_jinja',
 )
 
 DEFAULT_FEED_UPDATE_INTERVAL=60
 DEFAULT_ARTICLE_PURGE_INTERVAL=30
 PURGE_UNREAD=False
 
-DEBUG_TOOLBAR_CONFIG= {
-	'INTERCEPT_REDIRECTS': False,
-}
-
-# A sample logging configuration. The only tangible logging
-# performed by this configuration is to send an email to
-# the site admins on every HTTP 500 error when DEBUG=False.
-# See http://docs.djangoproject.com/en/dev/topics/logging for
-# more details on how to customize your logging configuration.
-# LOGGING = {
-# 	'version': 1,
-# 	'disable_existing_loggers': False,
-# 	'filters': {
-# 		'require_debug_false': {
-# 			'()': 'django.utils.log.RequireDebugFalse'
-# 		}
-# 	},
-# 	'handlers': {
-# 		'mail_admins': {
-# 			'level': 'ERROR',
-# 			'filters': ['require_debug_false'],
-# 			'class': 'django.utils.log.AdminEmailHandler'
-# 		}
-# 	},
-# 	'loggers': {
-# 		'django.request': {
-# 			'handlers': ['mail_admins'],
-# 			'level': 'ERROR',
-# 			'propagate': True,
-# 		},
-# 	}
-# }
+try:
+	from settings_local import *
+except ImportError:
+	pass

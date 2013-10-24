@@ -23,15 +23,19 @@ class FeedManager
 		$("#feed-#{@current_feed}").addClass('active')
 		window.location.hash=@current_feed
 		@update_title()
-	change_feed:(feed)->
+	change_feed:(feed, keep_active_article=false)->
+		if keep_active_article
+			tmp=$('li.article-row.active').clone()
 		$.ajax({
-			url:"/feeds/feeds/#{feed}/articles"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 			data:'all' if not @filter_read
 			dataType:'html'
 			success:(data)=>
 				@current_feed=feed
 				@set_current_feed()
 				$('.article-list').html(data)
+				if keep_active_article
+					$('div.article-list>ul').prepend(tmp)
 				@bind()
 		})
 	update_unread:(data)->
@@ -40,24 +44,26 @@ class FeedManager
 		@update_title()
 	mark_read:(article)->
 		$.ajax({
-			url:"/feeds/article/#{article}/read"
+			url:"#{window.AJAX_BASE}feeds/article/#{article}/read"
 			dataType:'json'
 			success:(data)=>
 				$("#article-#{article}").addClass('read')
+				$("#article-#{article}>div.article-content>div.article-content-footer>div>span:last").text('Mark unread')
 				@update_unread(data)
 		})
 	mark_unread:(article)->
 		$.ajax({
-			url:"/feeds/article/#{article}/unread"
+			url:"#{window.AJAX_BASE}feeds/article/#{article}/unread"
 			dataType:'json'
 			success:(data)=>
 				$("#article-#{article}").removeClass('read')
+				$("#article-#{article}>div.article-content>div.article-content-footer>div>span:last").text('Mark read')
 				@update_unread(data)
 		})
 	mark_all_read:()->
 		feed=@get_current_feed()
 		$.ajax({
-			url:"/feeds/feeds/#{feed}/mark_read"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/mark_read"
 			dataType:'json'
 			success:(data)=>
 				$('.article-row').addClass('read')
@@ -71,11 +77,11 @@ class FeedManager
 		feed=@get_current_feed()
 		$('#refresh-feed').addClass('disabled')
 		$.ajax({
-			url:"/feeds/feeds/#{feed}/refresh"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/refresh"
 			dataType:'json'
 			success:(data)=>
 				@update_unread(data)
-				@change_feed(feed)
+				@change_feed(feed, true)
 				$('#refresh-feed').removeClass('disabled')
 		})
 	toggle_filter_read:()->
@@ -97,9 +103,9 @@ class FeedManager
 			row.addClass('active')
 			if not main_content.data('loaded')
 				$.ajax({
-					url:"/feeds/article/#{row.data('id')}/"
+					url:"#{window.AJAX_BASE}feeds/article/#{row.data('id')}/"
 					dataType:'json'
-					async:false
+					# async:false
 					success:(data)=>
 						main_content.html(data.content)
 						main_content.data('loaded', true)
@@ -135,6 +141,15 @@ class FeedManager
 		$('li.article-row>div.article-row-title').click((e)->
 			# console.log('click detected')
 			_this.toggle_article($(@), e)
+		)
+		$('li.article-row>div.article-content>div.article-content-footer>div').off('click')
+		$('li.article-row>div.article-content>div.article-content-footer>div').click((e)->
+			row=$(@).parents('li')
+			id=row.data('id')
+			if row.hasClass('read')
+				_this.mark_unread(id)
+			else
+				_this.mark_read(id)
 		)
 		if feeds
 			$('li.feed-row').off('click')

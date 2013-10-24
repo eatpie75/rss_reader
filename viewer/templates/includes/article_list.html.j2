@@ -6,16 +6,17 @@
 								<img class='feed-icon' src='{{STATIC_URL}}img/rss.png'>
 								<div class='article-feed-name'>{{article.feed.title}}</div>
 								<div class='article-title'>{{article.title|safe}}</div>
-								<div class='article-date'>{{article.date_published_relative}}</div>
+								<div class='article-date' title='Published: {{article.date_published|date("h:iA D d M Y")}} Discovered: {{article.date_added|date("h:iA D d M Y")}}'>{{article.date_published_relative}}</div>
 							</div>
-							<div class='article-content'>
-								<div class='article-content-title'>
+							<div class='article-content panel panel-default'>
+								<div class='article-content-title panel-heading'>
 									<h2><a href='{{article.url}}' target='_blank'>{{article.title|safe}}</a></h2>
-								</div><br>
-								<div class='article-content-main' data-loaded='false'>
+								</div>
+								<div class='article-content-main panel-body' data-loaded='false'>
 									{# {{article.content|safe}} #}
 								</div>
-								<div class='article-content-footer'>
+								<div class='article-content-footer panel-footer'>
+									<div><span class='glyphicon glyphicon-envelope'></span> <span>{% if article.read %}Mark unread{% else %}Mark read{% endif %}</span></div>
 								</div>
 							</div>
 						</li>

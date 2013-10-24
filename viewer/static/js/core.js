@@ -37,16 +37,26 @@
       return this.update_title();
     };
 
-    FeedManager.prototype.change_feed = function(feed) {
-      var _this = this;
+    FeedManager.prototype.change_feed = function(feed, keep_active_article) {
+      var tmp,
+        _this = this;
+      if (keep_active_article == null) {
+        keep_active_article = false;
+      }
+      if (keep_active_article) {
+        tmp = $('li.article-row.active').clone();
+      }
       return $.ajax({
-        url: "/feeds/feeds/" + feed + "/articles",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
         data: !this.filter_read ? 'all' : void 0,
         dataType: 'html',
         success: function(data) {
           _this.current_feed = feed;
           _this.set_current_feed();
           $('.article-list').html(data);
+          if (keep_active_article) {
+            $('div.article-list>ul').prepend(tmp);
+          }
           return _this.bind();
         }
       });
@@ -64,10 +74,11 @@
     FeedManager.prototype.mark_read = function(article) {
       var _this = this;
       return $.ajax({
-        url: "/feeds/article/" + article + "/read",
+        url: "" + window.AJAX_BASE + "feeds/article/" + article + "/read",
         dataType: 'json',
         success: function(data) {
           $("#article-" + article).addClass('read');
+          $("#article-" + article + ">div.article-content>div.article-content-footer>div>span:last").text('Mark unread');
           return _this.update_unread(data);
         }
       });
@@ -76,10 +87,11 @@
     FeedManager.prototype.mark_unread = function(article) {
       var _this = this;
       return $.ajax({
-        url: "/feeds/article/" + article + "/unread",
+        url: "" + window.AJAX_BASE + "feeds/article/" + article + "/unread",
         dataType: 'json',
         success: function(data) {
           $("#article-" + article).removeClass('read');
+          $("#article-" + article + ">div.article-content>div.article-content-footer>div>span:last").text('Mark read');
           return _this.update_unread(data);
         }
       });
@@ -90,7 +102,7 @@
         _this = this;
       feed = this.get_current_feed();
       return $.ajax({
-        url: "/feeds/feeds/" + feed + "/mark_read",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/mark_read",
         dataType: 'json',
         success: function(data) {
           $('.article-row').addClass('read');
@@ -110,11 +122,11 @@
       feed = this.get_current_feed();
       $('#refresh-feed').addClass('disabled');
       return $.ajax({
-        url: "/feeds/feeds/" + feed + "/refresh",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/refresh",
         dataType: 'json',
         success: function(data) {
           _this.update_unread(data);
-          _this.change_feed(feed);
+          _this.change_feed(feed, true);
           return $('#refresh-feed').removeClass('disabled');
         }
       });
@@ -146,9 +158,8 @@
         row.addClass('active');
         if (!main_content.data('loaded')) {
           $.ajax({
-            url: "/feeds/article/" + (row.data('id')) + "/",
+            url: "" + window.AJAX_BASE + "feeds/article/" + (row.data('id')) + "/",
             dataType: 'json',
-            async: false,
             success: function(data) {
               main_content.html(data.content);
               return main_content.data('loaded', true);
@@ -207,6 +218,17 @@
       $('li.article-row>div.article-row-title').off('click');
       $('li.article-row>div.article-row-title').click(function(e) {
         return _this.toggle_article($(this), e);
+      });
+      $('li.article-row>div.article-content>div.article-content-footer>div').off('click');
+      $('li.article-row>div.article-content>div.article-content-footer>div').click(function(e) {
+        var id, row;
+        row = $(this).parents('li');
+        id = row.data('id');
+        if (row.hasClass('read')) {
+          return _this.mark_unread(id);
+        } else {
+          return _this.mark_read(id);
+        }
       });
       if (feeds) {
         $('li.feed-row').off('click');

@@ -14,11 +14,14 @@ class Feed(models.Model):
 	feed_url=models.URLField()
 	title=models.CharField(max_length=200, blank=True, null=True)
 	site_url=models.URLField(blank=True, null=True)
+	last_fetched=models.DateTimeField(blank=True, null=True)
 	last_updated=models.DateTimeField(blank=True, null=True)
 	update_interval=models.IntegerField(default=0)
 	purge_interval=models.IntegerField(default=0)
 	category=models.ForeignKey('Category', blank=True, null=True)
 	enabled=models.BooleanField(default=True)
+	success=models.BooleanField(default=True)
+	last_error=models.CharField(max_length=500, blank=True, null=True)
 
 	@property
 	def unread_count(self):
@@ -70,7 +73,7 @@ class Feed(models.Model):
 				article=Article(
 					feed=self,
 					guid=entry_id,
-					title=entry.title,
+					title=entry.title[:500],
 					url=entry.link,
 					date_added=timezone('utc').localize(now),
 					date_published=timezone('utc').localize(date),
@@ -78,20 +81,28 @@ class Feed(models.Model):
 					date_last_seen=timezone('utc').localize(now)
 				)
 				if 'content' in entry:
-					article.content=unicode(BeautifulSoup(entry.content[0]['value']).body)[6:-7]
-					article.description=unicode(BeautifulSoup(entry.description[:500]).body)[6:-7]
+					article.content=unicode(BeautifulSoup(entry.content[0]['value'], 'html.parser'))
+					article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
 				elif 'description' in entry:
-					article.content=unicode(BeautifulSoup(entry.description).body)[6:-7]
-					article.description=unicode(BeautifulSoup(entry.description[:500]).body)[6:-7]
+					article.content=unicode(BeautifulSoup(entry.description, 'html.parser'))
+					article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
 				else:
 					article.content=entry.title
 					article.description=entry.title[:500]
 				article.save()
 			print('Added {} new article(s)'.format(i))
-			self.last_updated=timezone('utc').localize(datetime.utcnow())
+			now=timezone('utc').localize(datetime.utcnow())
+			self.last_fetched=now
+			self.success=True
+			if i>0:
+				self.last_updated=now
 			self.save()
 		elif feed.bozo:
+			print('exception')
 			print(feed.bozo_exception)
+			self.success=False
+			self.last_error=str(feed.bozo_exception)
+			self.save()
 			# print(type(feed.bozo_exception))
 			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
 			if 'status' in feed: print(feed.status)
