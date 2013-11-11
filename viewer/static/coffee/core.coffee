@@ -71,6 +71,7 @@ class FeedManager
 					$('.feed-row>small').text('(0)')
 				else
 					$("#feed-#{feed}>small").text('(0)')
+				$('li.article-row>div.article-content>div.article-content-footer>div>span:last').text('Mark unread')
 				@update_unread(data)
 		})
 	refresh_feed:()->

@@ -111,6 +111,7 @@
           } else {
             $("#feed-" + feed + ">small").text('(0)');
           }
+          $('li.article-row>div.article-content>div.article-content-footer>div>span:last').text('Mark unread');
           return _this.update_unread(data);
         }
       });
