@@ -4,7 +4,7 @@
 						</li>
 						{%- for feed in feeds %}
 						<li class='feed-row{% if not feed.success %} error{% endif %}' id='feed-{{feed.id}}' data-id='{{feed.id}}' data-name='{{feed.title}}'{% if not feed.success %} title='{{feed.last_error}}'{% endif %}>
-							{{feed.title[:29]}} <small>({{individual_unread_count[feed.id]|default('0')}})</small>
+							<span>{{feed.title}}</span> <small>({{individual_unread_count[feed.id]|default('0')}})</small>
 						</li>
 						{%- endfor %}
 					</ul>
