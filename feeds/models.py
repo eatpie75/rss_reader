@@ -1,19 +1,26 @@
+import os.path
+import requests
 import socket
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.core.files import File
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from feeds import feedparser
+from io import BytesIO
+from PIL import Image
 from pytz import timezone
 from time import mktime
+from urlparse import urljoin
 
 
 class Feed(models.Model):
 	feed_url=models.URLField()
 	title=models.CharField(max_length=200, blank=True, null=True)
 	site_url=models.URLField(blank=True, null=True)
+	feed_image=models.ImageField(upload_to='feeds', blank=True, null=True)
 	last_fetched=models.DateTimeField(blank=True, null=True)
 	last_updated=models.DateTimeField(blank=True, null=True)
 	update_interval=models.IntegerField(default=0)
@@ -28,86 +35,150 @@ class Feed(models.Model):
 		return Article.objects.filter(feed=self, read=False).count()
 
 	def initialize(self):
-		feed=feedparser.parse(self.feed_url)
-		print("Initializing {}".format(self.feed_url))
-		if feed.status not in (404, 410, 500):
-			self.title=feed.feed.title
-			if 'link' in feed.feed:
-				self.site_url=feed.feed.link
-			self.last_updated=datetime.now(timezone('UTC'))
+		tmp=self.get_feed()
+		if tmp[0] is None:
+			feed=tmp[1]
+		else:
+			self.success=False
+			self.last_error=str(tmp[0])
 			self.save()
-			self.update(feed)
+
+		print("Initializing {}".format(self.feed_url))
+		self.title=feed.feed.title
+		if 'link' in feed.feed:
+			self.site_url=feed.feed.link
+		self.last_updated=datetime.now(timezone('UTC'))
+		self.save()
+		self.update(feed)
+		self.get_favicon(feed)
+
+	def get_feed(self):
+		old_timeout=socket.getdefaulttimeout()
+		socket.setdefaulttimeout(25.0)
+		feed=feedparser.parse(self.feed_url)
+		socket.setdefaulttimeout(old_timeout)
+		if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
+			return (None, feed)
+		elif feed.bozo:
+			print('exception')
+			print(feed.bozo_exception)
+			# print(type(feed.bozo_exception))
+			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
+			if 'status' in feed: print(feed.status)
+			return (feed.bozo_exception, None)
+
+	def get_favicon(self, feed=None):
+		if feed is None:
+			tmp=self.get_feed()
+			if tmp[0] is None:
+				feed=tmp[1]
+			else:
+				return None
+
+		if 'icon' in feed.feed:
+			url=feed.feed.icon
+			print('got icon from rss')
+		else:
+			tmp=requests.get(self.site_url)
+			if tmp.status_code in (404, 410, 500, 502):
+				print('site status code:{}'.format(tmp.status_code))
+				return None
+			tmp=BeautifulSoup(tmp.text)
+			tmp=tmp.find('link', rel='icon')
+			if tmp is not None:
+				url=urljoin(self.site_url, tmp['href'])
+				print('got icon from html')
+			else:
+				url=urljoin(self.site_url, '/favicon.ico')
+				print('got icon from favicon.ico')
+		icon=requests.get(url)
+		if icon.status_code in (404, 410, 500, 502):
+			return None
+		icon=File(BytesIO(icon.content))
+		output=File(BytesIO())
+		try:
+			image=Image.open(icon)
+			print('really opened image')
+		except:
+			return None
+		if image.mode!='RGBA':
+			image=image.convert('RGBA')
+		if image.size!=(16, 16):
+			image=image.resize((16, 16), Image.ANTIALIAS)
+		image.save(output, 'PNG', optimize=True)
+		if self.feed_image is not None:
+			self.feed_image.delete()
+		self.feed_image.save('{}.png'.format(self.pk), output)
+		return True
 
 	def update(self, feed=None):
 		if not self.enabled:
 			return 0
-		old_timeout=socket.getdefaulttimeout()
-		socket.setdefaulttimeout(25.0)
+
 		i=0
 		print("Updating {}:".format(self.title)),
+
 		if feed is None:
-			feed=feedparser.parse(self.feed_url)
-		if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
-			for entry in feed.entries:
-				if 'id' in entry:
-					entry_id=entry.id
+			tmp=self.get_feed()
+			if tmp[0] is None:
+				feed=tmp[1]
+			else:
+				self.success=False
+				self.last_error=str(tmp[0])
+				self.save()
+				return i
+
+		for entry in feed.entries:
+			if 'id' in entry:
+				entry_id=entry.id
+			else:
+				entry_id=entry.link
+			now=datetime.utcnow()
+			if Article.objects.filter(feed=self, guid=entry_id).exists():
+				Article.objects.filter(feed=self, guid=entry_id).update(date_last_seen=timezone('utc').localize(now))
+				continue
+			i+=1
+			if 'published_parsed' in entry and entry.published_parsed is not None:
+				date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.published_parsed)))
+				if 'updated_parsed' in entry:
+					update_date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
 				else:
-					entry_id=entry.link
-				now=datetime.utcnow()
-				if Article.objects.filter(feed=self, guid=entry_id).exists():
-					Article.objects.filter(feed=self, guid=entry_id).update(date_last_seen=timezone('utc').localize(now))
-					continue
-				i+=1
-				if 'published_parsed' in entry and entry.published_parsed is not None:
-					date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.published_parsed)))
-					if 'updated_parsed' in entry:
-						update_date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
-					else:
-						update_date=date
-				elif 'updated_parsed' in entry:
-					date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
 					update_date=date
-				else:
-					date=now
-					update_date=now
-				article=Article(
-					feed=self,
-					guid=entry_id,
-					title=entry.title[:500],
-					url=entry.link,
-					date_added=timezone('utc').localize(now),
-					date_published=timezone('utc').localize(date),
-					date_updated=timezone('utc').localize(update_date),
-					date_last_seen=timezone('utc').localize(now)
-				)
-				if 'content' in entry:
-					article.content=unicode(BeautifulSoup(entry.content[0]['value'], 'html.parser'))
-					article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
-				elif 'description' in entry:
-					article.content=unicode(BeautifulSoup(entry.description, 'html.parser'))
-					article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
-				else:
-					article.content=entry.title
-					article.description=entry.title[:500]
-				article.save()
-			print('Added {} new article(s)'.format(i))
-			now=timezone('utc').localize(datetime.utcnow())
-			self.last_fetched=now
-			self.success=True
-			if i>0:
-				self.last_updated=now
-			self.save()
-		elif feed.bozo:
-			print('exception')
-			print(feed.bozo_exception)
-			self.success=False
-			self.last_error=str(feed.bozo_exception)
-			self.save()
-			# print(type(feed.bozo_exception))
-			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
-			if 'status' in feed: print(feed.status)
+			elif 'updated_parsed' in entry:
+				date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
+				update_date=date
+			else:
+				date=now
+				update_date=now
+			article=Article(
+				feed=self,
+				guid=entry_id,
+				title=entry.title[:500],
+				url=entry.link,
+				date_added=timezone('utc').localize(now),
+				date_published=timezone('utc').localize(date),
+				date_updated=timezone('utc').localize(update_date),
+				date_last_seen=timezone('utc').localize(now)
+			)
+			if 'content' in entry:
+				article.content=unicode(BeautifulSoup(entry.content[0]['value'], 'html.parser'))
+				article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
+			elif 'description' in entry:
+				article.content=unicode(BeautifulSoup(entry.description, 'html.parser'))
+				article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
+			else:
+				article.content=entry.title
+				article.description=entry.title[:500]
+			article.save()
+		print('Added {} new article(s)'.format(i))
+		now=timezone('utc').localize(datetime.utcnow())
+		self.last_fetched=now
+		self.success=True
+		if i>0:
+			self.last_updated=now
+		self.save()
+
 		# self.purge()
-		socket.setdefaulttimeout(old_timeout)
 		return i
 
 	def purge(self):
@@ -118,6 +189,13 @@ class Feed(models.Model):
 			if not article.read and not settings.PURGE_UNREAD:
 				continue
 			article.delete()
+
+	@property
+	def get_feed_image(self):
+		if self.feed_image is not None:
+			return self.feed_image.url
+		else:
+			return None
 
 	def __unicode__(self):
 		return unicode(self.title)

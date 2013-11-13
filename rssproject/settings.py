@@ -20,6 +20,7 @@ DATABASES = {
 		'PASSWORD':	'ohsocool',
 		'HOST':		'localhost',                      # Empty for localhost through domain sockets or '127.0.0.1' for localhost through TCP.
 		'PORT':		'',                      # Set to empty string for default.
+		'CONN_MAX_AGE':	600,
 	}
 }
 
@@ -92,8 +93,8 @@ SECRET_KEY = 'fpd4#g2#o!_u67@5#&a)a)rqma&pbe4m@+y*_i@h-ah4qc-*0e'
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
-    'django_jinja.loaders.AppLoader',
-    'django_jinja.loaders.FileSystemLoader',
+	'django_jinja.loaders.AppLoader',
+	'django_jinja.loaders.FileSystemLoader',
 )
 
 DEFAULT_JINJA2_TEMPLATE_EXTENSION = '.html.j2'

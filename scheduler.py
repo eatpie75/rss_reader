@@ -10,7 +10,6 @@ from feeds.models import Feed
 from pytz import timezone
 
 
-
 logging.getLogger('apscheduler.scheduler').addHandler(logging.StreamHandler())
 
 
