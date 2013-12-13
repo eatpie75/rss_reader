@@ -108,7 +108,7 @@ class FeedManager
 					dataType:'json'
 					# async:false
 					success:(data)=>
-						main_content.html(data.content)
+						main_content.html(data.article__content)
 						main_content.data('loaded', true)
 				})
 			if not row.hasClass('read')

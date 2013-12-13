@@ -1,20 +1,15 @@
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.shortcuts import render_to_response
 from django.template import RequestContext
-from feeds.models import Feed, Article
+from feeds.models import UserFeedSubscription, UserArticleInfo, UserFeedCache
 
 
 @login_required
 def index(request):
-	feeds=Feed.objects.all()
-	articles=Article.objects.all()
-	if 'all' not in request.GET:
-		articles=articles.filter(read=False)
-	total_unread_count=Article.objects.filter(read=False).count()
+	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed')
+	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
 	individual_unread_count={}
-	for a in Article.objects.filter(read=False).only('feed__id'):
-		a=a.feed_id
-		if a not in individual_unread_count:
-			individual_unread_count[a]=0
-		individual_unread_count[a]+=1
-	return render_to_response('index.html.j2', {'feeds':feeds, 'total_unread_count':total_unread_count, 'individual_unread_count':individual_unread_count}, RequestContext(request))
+	for a in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
+		individual_unread_count[a.feed_id]=a.unread
+	return render_to_response('index.html.j2', {'user_feeds':user_feeds, 'total_unread_count':total_unread_count, 'individual_unread_count':individual_unread_count}, RequestContext(request))

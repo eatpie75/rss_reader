@@ -1,5 +1,5 @@
 from django.contrib import admin
-from models import Feed, Article, Category
+from models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
 
 
 class FeedAdmin(admin.ModelAdmin):
@@ -27,9 +27,22 @@ class FeedAdmin(admin.ModelAdmin):
 
 
 class ArticleAdmin(admin.ModelAdmin):
-	list_display=('feed', 'date_published', 'title', 'read')
-	list_editable=('read',)
-	list_filter=('read', 'feed')
+	list_display=('feed', 'date_published', 'title')
+	list_filter=('feed',)
+
+
+class CategoryAdmin(admin.ModelAdmin):
+	list_display=('name', 'parent')
+
+
+class UserFeedSubscriptionAdmin(admin.ModelAdmin):
+	list_display=('user', 'feed')
+	list_filter=('user',)
+
+
+class UserArticleInfoAdmin(admin.ModelAdmin):
+	list_display=('user', 'feed', 'article', 'read')
+	list_filter=('user', 'feed', 'read')
 	actions=['mark_read',]
 
 	def mark_read(self, request, qs):
@@ -43,9 +56,20 @@ class ArticleAdmin(admin.ModelAdmin):
 	mark_read.short_description='Mark selected articles as read'
 
 
-class CategoryAdmin(admin.ModelAdmin):
-	list_display=('name', 'parent')
+class UserFeedCacheAdmin(admin.ModelAdmin):
+	list_display=('user', 'feed', 'unread')
+	actions=['recalculate',]
+
+	def recalculate(self, request, qs):
+		for cache in qs:
+			cache.recalculate()
+		self.message_user(request, 'Recalculated cache(s)')
+	recalculate.short_description='Recalulate cache(s)'
+
 
 admin.site.register(Feed, FeedAdmin)
 admin.site.register(Article, ArticleAdmin)
 admin.site.register(Category, CategoryAdmin)
+admin.site.register(UserFeedSubscription, UserFeedSubscriptionAdmin)
+admin.site.register(UserArticleInfo, UserArticleInfoAdmin)
+admin.site.register(UserFeedCache, UserFeedCacheAdmin)

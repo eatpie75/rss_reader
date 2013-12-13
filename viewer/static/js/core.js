@@ -162,7 +162,7 @@
             url: "" + window.AJAX_BASE + "feeds/article/" + (row.data('id')) + "/",
             dataType: 'json',
             success: function(data) {
-              main_content.html(data.content);
+              main_content.html(data.article__content);
               return main_content.data('loaded', true);
             }
           });

@@ -1,11 +1,12 @@
-import os.path
 import requests
 import socket
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.files import File
 from django.db import models
+from django.db.models import Sum
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from feeds import feedparser
@@ -17,6 +18,7 @@ from urlparse import urljoin
 
 
 class Feed(models.Model):
+	id=models.AutoField(primary_key=True, db_index=True)
 	feed_url=models.URLField()
 	title=models.CharField(max_length=200, blank=True, null=True)
 	site_url=models.URLField(blank=True, null=True)
@@ -25,14 +27,11 @@ class Feed(models.Model):
 	last_updated=models.DateTimeField(blank=True, null=True)
 	update_interval=models.IntegerField(default=0)
 	purge_interval=models.IntegerField(default=0)
+	next_fetch=models.DateTimeField(blank=True, null=True)
 	category=models.ForeignKey('Category', blank=True, null=True)
 	enabled=models.BooleanField(default=True)
 	success=models.BooleanField(default=True)
 	last_error=models.CharField(max_length=500, blank=True, null=True)
-
-	@property
-	def unread_count(self):
-		return Article.objects.filter(feed=self, read=False).count()
 
 	def initialize(self):
 		tmp=self.get_feed()
@@ -57,15 +56,16 @@ class Feed(models.Model):
 		socket.setdefaulttimeout(25.0)
 		feed=feedparser.parse(self.feed_url)
 		socket.setdefaulttimeout(old_timeout)
-		if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
-			return (None, feed)
-		elif feed.bozo:
+		# if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
+		# 	return (None, feed)
+		if feed.bozo and not len(feed.entries):  # (feed.bozo_exception.args[0]!='XML or text declaration not at start of entity' and not isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
 			print('exception')
 			print(feed.bozo_exception)
 			# print(type(feed.bozo_exception))
 			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
 			if 'status' in feed: print(feed.status)
 			return (feed.bozo_exception, None)
+		return (None, feed)
 
 	def get_favicon(self, feed=None):
 		if feed is None:
@@ -125,6 +125,8 @@ class Feed(models.Model):
 			else:
 				self.success=False
 				self.last_error=str(tmp[0])
+				now=timezone('utc').localize(datetime.utcnow())
+				self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
 				self.save()
 				return i
 
@@ -170,12 +172,15 @@ class Feed(models.Model):
 				article.content=entry.title
 				article.description=entry.title[:500]
 			article.save()
+			article.create_user_info()
 		print('Added {} new article(s)'.format(i))
 		now=timezone('utc').localize(datetime.utcnow())
 		self.last_fetched=now
+		self.next_fetch=now + timedelta(minutes=self.update_interval)
 		self.success=True
 		if i>0:
 			self.last_updated=now
+			recalulate_feed_cache(self.pk)
 		self.save()
 
 		# self.purge()
@@ -183,7 +188,7 @@ class Feed(models.Model):
 
 	def purge(self):
 		interval=self.purge_interval if self.purge_interval!=0 else settings.DEFAULT_ARTICLE_PURGE_INTERVAL
-		interval=datetime.now(timezone('UTC'))-timedelta(days=interval)
+		interval=datetime.now(timezone('UTC')) - timedelta(days=interval)
 		articles=Article.objects.filter(feed=self, date_added__lte=interval)
 		for article in articles:
 			if not article.read and not settings.PURGE_UNREAD:
@@ -192,7 +197,7 @@ class Feed(models.Model):
 
 	@property
 	def get_feed_image(self):
-		if self.feed_image is not None:
+		if self.feed_image!='':
 			return self.feed_image.url
 		else:
 			return None
@@ -205,6 +210,7 @@ class Feed(models.Model):
 
 
 class Article(models.Model):
+	id=models.AutoField(primary_key=True, db_index=True)
 	feed=models.ForeignKey(Feed)
 	guid=models.CharField(db_index=True, max_length=200)
 	title=models.CharField(max_length=500)
@@ -216,7 +222,14 @@ class Article(models.Model):
 	description=models.TextField(blank=True, null=True)
 	content=models.TextField(blank=True, null=True)
 	url=models.URLField()
-	read=models.BooleanField(db_index=True, default=False)
+
+	def create_user_info(self):
+		tmp=[]
+		for subscription in UserFeedSubscription.objects.filter(feed=self.feed).only('user'):
+			tmp.append(UserArticleInfo(user=subscription.user, feed=self.feed, article=self))
+		UserArticleInfo.objects.bulk_create(tmp)
+		del tmp
+		return True
 
 	@property
 	def date_published_relative(self):
@@ -235,6 +248,59 @@ class Article(models.Model):
 		ordering=['-date_published', '-date_added', '-id']
 
 
+class UserFeedSubscription(models.Model):
+	user=models.ForeignKey(User, db_index=True)
+	feed=models.ForeignKey(Feed, db_index=True)
+	date_added=models.DateTimeField(auto_now_add=True)
+
+	@property
+	def unread(self):
+		return UserFeedCache.objects.get(user=self.user, feed=self.feed).unread
+
+	class Meta:
+		ordering=['feed__title',]
+		unique_together=[['user', 'feed'],]
+
+
+class UserArticleInfo(models.Model):
+	user=models.ForeignKey(User, db_index=True)
+	feed=models.ForeignKey(Feed, db_index=True)
+	article=models.ForeignKey(Article, db_index=True)
+	read=models.BooleanField(db_index=True, default=False)
+	date_read=models.DateTimeField(blank=True, null=True)
+
+	class Meta:
+		index_together=[['user', 'feed'], ['user', 'feed', 'read']]
+		ordering=['-article__date_published', '-article__date_added', '-article__id']
+		unique_together=[['user', 'feed', 'article']]
+
+
+class UserFeedCache(models.Model):
+	user=models.ForeignKey(User)
+	feed=models.ForeignKey(Feed)
+	unread=models.IntegerField(default=0)
+
+	def recalculate(self):
+		self.unread=UserArticleInfo.objects.filter(user=self.user, feed=self.feed, read=False).count()
+		self.save()
+		return self
+
+	def add(self, value=1):
+		self.unread+=value
+		self.save()
+		return self.unread
+
+	def sub(self, value=1):
+		if self.unread - value>=0:
+			self.unread-=value
+			self.save()
+		return self.unread
+
+	class Meta:
+		index_together=[['user', 'feed'],]
+		unique_together=[['user', 'feed'],]
+
+
 class Category(models.Model):
 	name=models.CharField(max_length=50)
 	parent=models.ForeignKey('Category', blank=True, null=True)
@@ -245,6 +311,20 @@ class Category(models.Model):
 	class Meta:
 		ordering=['name',]
 		verbose_name_plural='categories'
+
+
+def recalculate_user_cache(user):
+	user=User.objects.get(pk=user)
+	for cache in UserFeedCache.objects.filter(user=user):
+		cache.recalculate()
+	return UserFeedCache.objects.filter(user=user).aggregate(Sum('unread'))['unread__sum']
+
+
+def recalulate_feed_cache(feed):
+	feed=Feed.objects.get(pk=feed)
+	for cache in UserFeedCache.objects.filter(feed=feed):
+		cache.recalculate()
+	return True
 
 
 @receiver(post_save, sender=Feed, dispatch_uid='feeds.add_feed')
