@@ -92,11 +92,67 @@ def view_feed_articles(request, feed):
 	feed=int(feed)
 	if feed!=0:
 		feed=Feed.objects.get(pk=feed)
-		articles=UserArticleInfo.objects.filter(user=request.user, feed=feed).select_related('article', 'feed__title', 'feed__get_image')
+		articles=UserArticleInfo.objects.filter(user=request.user, feed=feed).select_related('article', 'feed__title', 'feed__get_feed_image')
 		if 'all' not in request.GET:
 			articles=articles.filter(read=False)
 	else:
-		articles=UserArticleInfo.objects.filter(user=request.user).select_related('article', 'feed__title', 'feed__get_image')
+		articles=UserArticleInfo.objects.filter(user=request.user).select_related('article', 'feed__title', 'feed__get_feed_image')
 		if 'all' not in request.GET:
 			articles=articles.filter(read=False)
 	return render_to_response('includes/article_list.html.j2', {'articles':articles[:50]}, RequestContext(request))
+
+
+@login_required
+def article_list(request, feed):
+	feed=int(feed)
+	context=RequestContext(request)
+
+	if feed!=0:
+		feed=Feed.objects.get(pk=feed)
+		articles=UserArticleInfo.objects.filter(user=request.user, feed=feed)
+		if 'all' not in request.GET or request.GET['all']=='false':
+			articles=articles.filter(read=False)
+	else:
+		articles=UserArticleInfo.objects.filter(user=request.user)
+		if 'all' not in request.GET or request.GET['all']=='false':
+			articles=articles.filter(read=False)
+
+	if 'last_article' in request.GET:
+		last_article=float(request.GET['last_article']) / 1000.0
+		last_article=datetime.fromtimestamp(last_article)
+		articles=articles.filter(article__date_published__lt=last_article)
+
+	if 'limit' in request.GET:
+		limit=min(int(request.GET['limit']), 50)
+	else:
+		limit=50
+
+	articles=articles.select_related('article', 'feed__pk', 'feed__title', 'feed__get_feed_image', 'user__pk')
+
+	data=[]
+	for user_article in articles[:limit]:
+		tmp={
+			'pk':user_article.pk,
+			'user':user_article.user.pk,
+			'feed':{
+				'pk':user_article.feed.pk,
+				'title':user_article.feed.title,
+				'image':user_article.feed.get_feed_image if user_article.feed.get_feed_image is not None else context['STATIC_URL'] + 'img/rss.png'
+			},
+			'article':{
+				'pk':user_article.article.pk,
+				'title':user_article.article.title,
+				'author':user_article.article.author,
+				'date_published':user_article.article.date_published,
+				'date_published_relative':user_article.article.date_published_relative,
+				'date_added':user_article.article.date_added,
+				# 'description':user_article.article.description,
+				# 'content':user_article.article.content,
+				'url':user_article.article.url
+			},
+			'read':user_article.read,
+			'date_read':user_article.date_read
+		}
+		data.append(tmp)
+	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)}, context)

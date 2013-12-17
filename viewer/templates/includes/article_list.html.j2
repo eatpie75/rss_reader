@@ -1,4 +1,3 @@
-					<ul>
 						{%- for user_article in articles %}
 						{%- set article=user_article.article %}
 						<li class='article-row{% if user_article.read %} read{% endif %}' id='article-{{article.pk}}'
@@ -22,4 +21,3 @@
 							</div>
 						</li>
 						{%- endfor %}
-					</ul>

@@ -6,11 +6,32 @@
     function FeedManager() {
       this.current_feed = 0;
       this.filter_read = true;
+      this.last_article = Infinity;
+      this.last_article_visible = false;
+      this.more_articles_to_load = true;
+      this.busy = false;
       this.get_current_feed();
       this.set_current_feed();
       this.buttons = {};
       this.bind(true, true);
     }
+
+    FeedManager.prototype.update_last_article = function(data) {
+      var article, time, _i, _len;
+      for (_i = 0, _len = data.length; _i < _len; _i++) {
+        article = data[_i];
+        time = new Date(article.article.date_published);
+        time = time.getTime();
+        if (time < this.last_article) {
+          this.last_article = time;
+        }
+      }
+      return this.last_article;
+    };
+
+    FeedManager.prototype.reset_last_article = function() {
+      return this.last_article = Infinity;
+    };
 
     FeedManager.prototype.update_title = function() {
       var el, feed, unread;
@@ -43,21 +64,62 @@
       if (keep_active_article == null) {
         keep_active_article = false;
       }
+      this.busy = true;
       if (keep_active_article) {
         tmp = $('li.article-row.active').clone();
       }
       return $.ajax({
-        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/test",
         data: !this.filter_read ? 'all' : void 0,
-        dataType: 'html',
+        dataType: 'json',
         success: function(data) {
+          _this.reset_last_article();
+          _this.update_last_article(data);
           _this.current_feed = feed;
           _this.set_current_feed();
-          $('.article-list').html(data);
+          $('.article-list>ul').html(Mark.up(window.templates['articles'], {
+            'articles': data
+          }));
           if (keep_active_article) {
             $('div.article-list>ul').prepend(tmp);
           }
-          return _this.bind();
+          _this.bind();
+          $('.article-list').scrollTop(0);
+          if (data.length === 50) {
+            _this.more_articles_to_load = true;
+          }
+          return _this.busy = false;
+        }
+      });
+    };
+
+    FeedManager.prototype.load_more_articles = function() {
+      var feed,
+        _this = this;
+      this.busy = true;
+      feed = this.current_feed;
+      if (!this.more_articles_to_load) {
+        return;
+      }
+      return $.ajax({
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/test",
+        data: {
+          'limit': 15,
+          'all': !this.filter_read,
+          'last_article': this.last_article
+        },
+        dataType: 'json',
+        success: function(data) {
+          _this.update_last_article(data);
+          $('.article-list>ul').append(Mark.up(window.templates['articles'], {
+            'articles': data
+          }));
+          _this.bind();
+          if (data.length < 15) {
+            console.log('no more');
+            _this.more_articles_to_load = false;
+          }
+          return _this.busy = false;
         }
       });
     };
@@ -260,13 +322,30 @@
             return _this.prev_article();
           }
         });
-        return this.change_feed(this.get_current_feed());
+        this.change_feed(this.get_current_feed());
+        return $('.article-list').scroll(function() {
+          if ($('.article-list').scrollTop() === 0 || _this.busy) {
+            return;
+          }
+          if ($('.article-row:last').offset().top < $('.article-list').innerHeight()) {
+            if (_this.last_article_visible === false) {
+              _this.load_more_articles();
+              return _this.last_article_visible = true;
+            }
+          } else {
+            return _this.last_article_visible = false;
+          }
+        });
       }
     };
 
     return FeedManager;
 
   })();
+
+  window.templates = {
+    'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title}}</div>			<div class='article-title'>{{article.title}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}"
+  };
 
   $(document).ready(function() {
     return window.feeds = new FeedManager();

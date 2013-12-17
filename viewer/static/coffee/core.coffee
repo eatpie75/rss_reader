@@ -2,11 +2,24 @@ class FeedManager
 	constructor:()->
 		@current_feed=0
 		@filter_read=true
+		@last_article=Infinity
+		@last_article_visible=false
+		@more_articles_to_load=true
+		@busy=false
 		@get_current_feed()
 		@set_current_feed()
 
 		@buttons={}
 		@bind(true, true)
+	update_last_article:(data)->
+		for article in data
+			time=new Date(article.article.date_published)
+			time=time.getTime()
+			if time<@last_article
+				@last_article=time			
+		@last_article
+	reset_last_article:()->
+		@last_article=Infinity
 	update_title:()->
 		feed=@get_current_feed()
 		el=$("#feed-#{feed}")
@@ -24,19 +37,44 @@ class FeedManager
 		window.location.hash=@current_feed
 		@update_title()
 	change_feed:(feed, keep_active_article=false)->
+		@busy=true
 		if keep_active_article
 			tmp=$('li.article-row.active').clone()
 		$.ajax({
-			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/test"
 			data:'all' if not @filter_read
-			dataType:'html'
+			dataType:'json'
 			success:(data)=>
+				@reset_last_article()
+				@update_last_article(data)
 				@current_feed=feed
 				@set_current_feed()
-				$('.article-list').html(data)
+				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data}))
 				if keep_active_article
 					$('div.article-list>ul').prepend(tmp)
 				@bind()
+				$('.article-list').scrollTop(0)
+				if data.length==50
+					@more_articles_to_load=true
+				@busy=false
+		})
+	load_more_articles:()->
+		@busy=true
+		feed=@current_feed
+		if not @more_articles_to_load
+			return
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/test"
+			data:{'limit':15, 'all':!@filter_read, 'last_article':@last_article}
+			dataType:'json'
+			success:(data)=>
+				@update_last_article(data)
+				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data}))
+				@bind()
+				if data.length<15
+					console.log 'no more'
+					@more_articles_to_load=false
+				@busy=false
 		})
 	update_unread:(data)->
 		for feed in data
@@ -179,6 +217,41 @@ class FeedManager
 					_this.prev_article()
 			)
 			@change_feed(@get_current_feed())
+			$('.article-list').scroll(()->
+				if $('.article-list').scrollTop()==0 or _this.busy
+					return
+				if $('.article-row:last').offset().top<$('.article-list').innerHeight()
+					if _this.last_article_visible==false
+						_this.load_more_articles()
+						_this.last_article_visible=true
+				else
+					_this.last_article_visible=false
+			)
+
+window.templates={
+	'articles':"{{articles}}
+	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'
+	data-id='{{article.pk}}'>
+		<div class='article-row-title'>
+			<img class='feed-icon' src='{{feed.image}}'>
+			<div class='article-feed-name'>{{feed.title}}</div>
+			<div class='article-title'>{{article.title}}</div>
+			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>
+		</div>
+		<div class='article-content panel panel-default'>
+			<div class='article-content-title panel-heading'>
+				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>
+			</div>
+			<div class='article-content-main panel-body' data-loaded='false'>
+				
+			</div>
+			<div class='article-content-footer panel-footer'>
+				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>
+			</div>
+		</div>
+	</li>
+	{{/articles}}"
+}
 
 $(document).ready(->
 	window.feeds=new FeedManager()
