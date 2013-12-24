@@ -59,17 +59,25 @@
     };
 
     FeedManager.prototype.change_feed = function(feed, keep_active_article) {
-      var tmp,
+      var ih, offset, scroll, tmp,
         _this = this;
       if (keep_active_article == null) {
         keep_active_article = false;
       }
       this.busy = true;
+      offset = $("#feed-" + feed).offset().top - 25;
+      ih = $('.feed-list>ul').innerHeight() - 25;
+      scroll = $('.feed-list>ul').scrollTop();
+      if (offset + 14 > ih) {
+        $('.feed-list>ul').scrollTop(scroll + (offset - ih) + 14);
+      } else if (offset < 0) {
+        $('.feed-list>ul').scrollTop(scroll + offset);
+      }
       if (keep_active_article) {
         tmp = $('li.article-row.active').clone();
       }
       return $.ajax({
-        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/test",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
         data: !this.filter_read ? 'all' : void 0,
         dataType: 'json',
         success: function(data) {
@@ -102,7 +110,7 @@
         return;
       }
       return $.ajax({
-        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/test",
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
         data: {
           'limit': 15,
           'all': !this.filter_read,
@@ -195,6 +203,24 @@
       });
     };
 
+    FeedManager.prototype.refresh_feed_list = function(cb) {
+      var _this = this;
+      if (cb == null) {
+        cb = null;
+      }
+      return $.ajax({
+        url: "" + window.AJAX_BASE + "feeds/feeds/list/",
+        dataType: 'json',
+        success: function(data) {
+          $('.feed-list>ul').html(Mark.up(window.templates.feed_list, data));
+          _this.bind(true);
+          if (cb != null) {
+            return cb();
+          }
+        }
+      });
+    };
+
     FeedManager.prototype.toggle_filter_read = function() {
       this.filter_read = this.filter_read ^ 1;
       $('#filter-read').button('toggle');
@@ -269,6 +295,46 @@
       }
     };
 
+    FeedManager.prototype.add_feed = function() {
+      var _this = this;
+      if (!$('#add_feed_modal').length) {
+        $('body').append(Mark.up(window.templates.modal));
+        $('#add_feed_modal .modal-body').html(Mark.up(window.templates.add_feed_form));
+        $('#add_feed_submit').click(function(e) {
+          $('#add_feed_submit').addClass('disabled');
+          return _this.add_feed_submit();
+        });
+      }
+      return $('#add_feed_modal').modal();
+    };
+
+    FeedManager.prototype.add_feed_submit = function() {
+      var _this = this;
+      return $.ajax({
+        url: "" + window.AJAX_BASE + "feeds/feeds/add/",
+        type: 'POST',
+        dataType: 'json',
+        data: $('#id_url').serialize(),
+        headers: {
+          'X-CSRFToken': window.CSRF_TOKEN
+        },
+        success: function(data) {
+          if ('error' in data) {
+            $('#add_feed_modal .modal-body>.alert').text(data.error);
+            return $('#add_feed_modal .modal-body>.alert').removeClass('hidden');
+          } else {
+            return _this.refresh_feed_list(function() {
+              $('#add_feed_modal').on('hidden.bs.modal', function(e) {
+                return $('#add_feed_modal').remove();
+              });
+              $('#add_feed_modal').modal('hide');
+              return _this.change_feed(data.pk);
+            });
+          }
+        }
+      });
+    };
+
     FeedManager.prototype.bind = function(feeds, initial) {
       var _this;
       if (feeds == null) {
@@ -307,6 +373,10 @@
         this.buttons.mark_all_read.click(function(e) {
           return _this.mark_all_read();
         });
+        this.buttons.add_feed = $('#add-feed');
+        this.buttons.add_feed.click(function(e) {
+          return _this.add_feed();
+        });
         this.buttons.refresh_feed = $('#refresh-feed');
         this.buttons.refresh_feed.click(function(e) {
           return _this.refresh_feed();
@@ -316,6 +386,8 @@
           return _this.toggle_filter_read();
         });
         $('body').keyup(function(e) {
+          e.stopPropagation();
+          e.preventDefault();
           if (e.which === 74) {
             return _this.next_article();
           } else if (e.which === 75) {
@@ -344,7 +416,10 @@
   })();
 
   window.templates = {
-    'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title}}</div>			<div class='article-title'>{{article.title}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}"
+    'feed_list': "		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>			Unread Items <small>({{total_unread_count}})</small>		</li>		{{feed_list}}		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>			<span>{{title}}</span> <small>({{unread}})</small>		</li>		{{/feed_list}}",
+    'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title}}</div>			<div class='article-title'>{{article.title}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}",
+    'modal': "		<div class='modal fade' id='add_feed_modal' tabindex='-1' role='dialog'>			<div class='modal-dialog'>				<div class='modal-content'>					<div class='modal-header'>						<button type='button' class='close' data-dismiss='modal'>&times;</button>						<h4 class='modal-title' id='add_feed_modal_label'>Add feed</h4>					</div>					<div class='modal-body'></div>					<div class='modal-footer'>						<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>						<button type='button' class='btn btn-primary' id='add_feed_submit'>Add feed</button>					</div>				</div>			</div>		</div>",
+    'add_feed_form': "		<div class='alert alert-danger hidden'></div>		<form class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-2 control-label' for='id_url'>Feed URL</label>				<div class='col-md-12'>					<input class='form-control' id='id_url' name='url' type='url'>				</div>			</div>		</form>"
   };
 
   $(document).ready(function() {

@@ -1,11 +1,14 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render_to_response
-from datetime import datetime, timedelta
-from django.http import HttpResponse
-from django.template import RequestContext
-from models import Feed, UserArticleInfo, UserFeedCache, recalculate_user_cache
-from pytz import timezone
 import json
+from datetime import datetime, timedelta
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
+from django.http import HttpResponse
+from django.shortcuts import render_to_response
+from django.template import RequestContext
+from pytz import timezone
+from .forms import AddFeedForm
+from .models import Feed, Article, UserArticleInfo, UserFeedSubscription, UserFeedCache, recalculate_user_cache
+from .utils import check_feed
 
 
 class DateEncoder(json.JSONEncoder):
@@ -49,7 +52,7 @@ def mark_read(request, article):
 @login_required
 def mark_unread(request, article):
 	article=int(article)
-	article=UserArticleInfo.objects.get(article=article)
+	article=UserArticleInfo.objects.get(user=request.user, article=article)
 	if article.read:
 		article.read=False
 		article.date_read=None
@@ -88,22 +91,29 @@ def view_article(request, article):
 
 
 @login_required
-def view_feed_articles(request, feed):
-	feed=int(feed)
-	if feed!=0:
-		feed=Feed.objects.get(pk=feed)
-		articles=UserArticleInfo.objects.filter(user=request.user, feed=feed).select_related('article', 'feed__title', 'feed__get_feed_image')
-		if 'all' not in request.GET:
-			articles=articles.filter(read=False)
-	else:
-		articles=UserArticleInfo.objects.filter(user=request.user).select_related('article', 'feed__title', 'feed__get_feed_image')
-		if 'all' not in request.GET:
-			articles=articles.filter(read=False)
-	return render_to_response('includes/article_list.html.j2', {'articles':articles[:50]}, RequestContext(request))
+def view_feed_list(request):
+	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed__id', 'feed__title', 'feed__success', 'feed__last_error')
+	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
+	individual_unread_count={}
+	for a in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
+		individual_unread_count[a.feed_id]=a.unread
+	data={'total_unread_count':total_unread_count}
+	feed_list=[]
+	for user_feed in user_feeds:
+		feed_list.append({
+			'pk':user_feed.feed.id,
+			'title':user_feed.feed.title,
+			'success':user_feed.feed.success,
+			'last_error':user_feed.feed.last_error,
+			'unread':individual_unread_count[user_feed.feed.id]
+		})
+	data['feed_list']=feed_list
+	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)})
 
 
 @login_required
-def article_list(request, feed):
+def view_feed_articles(request, feed):
 	feed=int(feed)
 	context=RequestContext(request)
 
@@ -156,3 +166,45 @@ def article_list(request, feed):
 		data.append(tmp)
 	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)}, context)
+
+
+@login_required
+def add_feed(request):
+	if request.method=='POST':
+		form=AddFeedForm(request.POST)
+		if form.is_valid():
+			feed=check_feed(form.cleaned_data['url'])
+			if feed[0] is not None:
+				# data={'error':str(feed[0])}
+				data={'error':'Error fetching feed.'}
+			else:
+				if type(feed[1])!=int:
+					feed=Feed(feed_url=form.cleaned_data['url'])
+					feed.save()
+				elif type(feed[1])==int:
+					feed=Feed.objects.get(pk=feed[1])
+					if feed.enabled is False:
+						feed.enabled=True
+					if feed.needs_update:
+						feed.update()
+				UserFeedSubscription(user=request.user, feed=feed).save()
+				tmp=[]
+				for article in Article.objects.filter(feed=feed.pk).only('pk')[:25]:
+					tmp.append(UserArticleInfo(user=request.user, feed=feed, article=article))
+				UserArticleInfo.objects.bulk_create(tmp)
+				del tmp
+				UserFeedCache(user=request.user, feed=feed).recalculate()
+
+				data={
+					'pk':feed.pk,
+					'enabled':feed.enabled,
+					'success':feed.success,
+					'title':feed.title,
+					'site_url':feed.site_url,
+					'image':feed.get_feed_image
+				}
+		else:
+			data={'error':'Input a valid url.'}
+	else:
+		data={'error':''}
+	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')

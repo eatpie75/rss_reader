@@ -15,14 +15,19 @@
 						<a id='mark-all-read' class='btn btn-xs btn-primary'>
 							Mark all as read
 						</a>
+						<a id='add-feed' class='btn btn-xs btn-success'>
+							<span class='glyphicon glyphicon-plus'></span>
+						</a>
 						<a id='refresh-feed' class='btn btn-xs btn-success' data-loading-text='Refreshing...'>
-							Refresh
+							<span class='glyphicon glyphicon-refresh'></span>
 						</a>
 						<a id='filter-read' class='btn btn-xs btn-info'>
 							<span class='glyphicon glyphicon-filter'></span>
 						</a>
 					</div>
+					<ul>
 {% include 'includes/feed_list.html.j2' with context %}
+					</ul>
 				</div>
 				<div class='article-list col-md-11 screen-height'>
 					<ul>

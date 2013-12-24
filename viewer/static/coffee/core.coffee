@@ -38,10 +38,17 @@ class FeedManager
 		@update_title()
 	change_feed:(feed, keep_active_article=false)->
 		@busy=true
+		offset=$("#feed-#{feed}").offset().top-25
+		ih=$('.feed-list>ul').innerHeight()-25
+		scroll=$('.feed-list>ul').scrollTop()
+		if offset+14>ih
+			$('.feed-list>ul').scrollTop(scroll+(offset-ih)+14)
+		else if offset<0
+			$('.feed-list>ul').scrollTop(scroll+offset)
 		if keep_active_article
 			tmp=$('li.article-row.active').clone()
 		$.ajax({
-			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/test"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 			data:'all' if not @filter_read
 			dataType:'json'
 			success:(data)=>
@@ -64,7 +71,7 @@ class FeedManager
 		if not @more_articles_to_load
 			return
 		$.ajax({
-			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/test"
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 			data:{'limit':15, 'all':!@filter_read, 'last_article':@last_article}
 			dataType:'json'
 			success:(data)=>
@@ -123,6 +130,16 @@ class FeedManager
 				@change_feed(feed, true)
 				$('#refresh-feed').removeClass('disabled')
 		})
+	refresh_feed_list:(cb=null)->
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/list/"
+			dataType:'json'
+			success:(data)=>
+				$('.feed-list>ul').html(Mark.up(window.templates.feed_list, data))
+				@bind(true)
+				if cb?
+					cb()
+		})
 	toggle_filter_read:()->
 		@filter_read=@filter_read^1
 		$('#filter-read').button('toggle')
@@ -174,6 +191,35 @@ class FeedManager
 			@toggle_article(current_article.children('.article-row-title'))
 		else
 			@toggle_article(prev)
+	add_feed:()->
+		if not $('#add_feed_modal').length
+			$('body').append(Mark.up(window.templates.modal))
+			$('#add_feed_modal .modal-body').html(Mark.up(window.templates.add_feed_form))
+			$('#add_feed_submit').click((e)=>
+				$('#add_feed_submit').addClass('disabled')
+				@add_feed_submit()
+			)
+		$('#add_feed_modal').modal()
+	add_feed_submit:()->
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/add/"
+			type:'POST'
+			dataType:'json'
+			data:$('#id_url').serialize()
+			headers:{'X-CSRFToken':window.CSRF_TOKEN}
+			success:(data)=>
+				if 'error' of data
+					$('#add_feed_modal .modal-body>.alert').text(data.error)
+					$('#add_feed_modal .modal-body>.alert').removeClass('hidden')
+				else
+					@refresh_feed_list(()=>
+						$('#add_feed_modal').on('hidden.bs.modal', (e)->
+							$('#add_feed_modal').remove()
+						)
+						$('#add_feed_modal').modal('hide')
+						@change_feed(data.pk)
+					)
+		})
 	bind:(feeds=false, initial=false)->
 		_this=@
 		$('li.article-row>div.article-row-title').off('click')
@@ -202,6 +248,10 @@ class FeedManager
 			@buttons.mark_all_read.click((e)->
 				_this.mark_all_read()
 			)
+			@buttons.add_feed=$('#add-feed')
+			@buttons.add_feed.click((e)->
+				_this.add_feed()
+			)
 			@buttons.refresh_feed=$('#refresh-feed')
 			@buttons.refresh_feed.click((e)->
 				_this.refresh_feed()
@@ -211,6 +261,8 @@ class FeedManager
 				_this.toggle_filter_read()
 			)
 			$('body').keyup((e)->
+				e.stopPropagation()
+				e.preventDefault()
 				if e.which==74
 					_this.next_article()
 				else if e.which==75
@@ -229,6 +281,15 @@ class FeedManager
 			)
 
 window.templates={
+	'feed_list':"
+		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>
+			Unread Items <small>({{total_unread_count}})</small>
+		</li>
+		{{feed_list}}
+		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>
+			<span>{{title}}</span> <small>({{unread}})</small>
+		</li>
+		{{/feed_list}}",
 	'articles':"{{articles}}
 	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'
 	data-id='{{article.pk}}'>
@@ -250,7 +311,33 @@ window.templates={
 			</div>
 		</div>
 	</li>
-	{{/articles}}"
+	{{/articles}}",
+	'modal':"
+		<div class='modal fade' id='add_feed_modal' tabindex='-1' role='dialog'>
+			<div class='modal-dialog'>
+				<div class='modal-content'>
+					<div class='modal-header'>
+						<button type='button' class='close' data-dismiss='modal'>&times;</button>
+						<h4 class='modal-title' id='add_feed_modal_label'>Add feed</h4>
+					</div>
+					<div class='modal-body'></div>
+					<div class='modal-footer'>
+						<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>
+						<button type='button' class='btn btn-primary' id='add_feed_submit'>Add feed</button>
+					</div>
+				</div>
+			</div>
+		</div>",
+	'add_feed_form':"
+		<div class='alert alert-danger hidden'></div>
+		<form class='form-horizontal' role='form'>
+			<div class='form-group'>
+				<label class='col-md-2 control-label' for='id_url'>Feed URL</label>
+				<div class='col-md-12'>
+					<input class='form-control' id='id_url' name='url' type='url'>
+				</div>
+			</div>
+		</form>"
 }
 
 $(document).ready(->

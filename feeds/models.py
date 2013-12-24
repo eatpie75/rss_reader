@@ -2,12 +2,12 @@ import requests
 import socket
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from django.conf import settings
+# from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files import File
 from django.db import models
 from django.db.models import Sum
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from feeds import feedparser
 from io import BytesIO
@@ -19,15 +19,15 @@ from urlparse import urljoin
 
 class Feed(models.Model):
 	id=models.AutoField(primary_key=True, db_index=True)
-	feed_url=models.URLField()
 	title=models.CharField(max_length=200, blank=True, null=True)
+	feed_url=models.URLField()
 	site_url=models.URLField(blank=True, null=True)
 	feed_image=models.ImageField(upload_to='feeds', blank=True, null=True)
 	last_fetched=models.DateTimeField(blank=True, null=True)
 	last_updated=models.DateTimeField(blank=True, null=True)
-	update_interval=models.IntegerField(default=0)
-	purge_interval=models.IntegerField(default=0)
+	update_interval=models.IntegerField(default=300)
 	next_fetch=models.DateTimeField(blank=True, null=True)
+	purge_interval=models.IntegerField(default=0)
 	category=models.ForeignKey('Category', blank=True, null=True)
 	enabled=models.BooleanField(default=True)
 	success=models.BooleanField(default=True)
@@ -39,8 +39,9 @@ class Feed(models.Model):
 			feed=tmp[1]
 		else:
 			self.success=False
-			self.last_error=str(tmp[0])
+			self.enabled=False
 			self.save()
+			return False
 
 		print("Initializing {}".format(self.feed_url))
 		self.title=feed.feed.title
@@ -64,7 +65,17 @@ class Feed(models.Model):
 			# print(type(feed.bozo_exception))
 			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
 			if 'status' in feed: print(feed.status)
+			self.success=False
+			self.last_error=str(feed.bozo_exception)
+			now=timezone('utc').localize(datetime.utcnow())
+			self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
+			self.save()
 			return (feed.bozo_exception, None)
+		if feed.status==301:
+			print('got status:301, updating feed url to:{}'.format(feed.href))
+			self.feed_url=feed.href
+		elif not 199<feed.status<300:
+			print('got status:{}'.format(feed.status))
 		return (None, feed)
 
 	def get_favicon(self, feed=None):
@@ -77,7 +88,7 @@ class Feed(models.Model):
 
 		if 'icon' in feed.feed:
 			url=feed.feed.icon
-			print('got icon from rss')
+			print('got icon from rss:{}'.format(url))
 		else:
 			tmp=requests.get(self.site_url)
 			if tmp.status_code in (404, 410, 500, 502):
@@ -87,12 +98,13 @@ class Feed(models.Model):
 			tmp=tmp.find('link', rel='icon')
 			if tmp is not None:
 				url=urljoin(self.site_url, tmp['href'])
-				print('got icon from html')
+				print('got icon from html:{}'.format(url))
 			else:
 				url=urljoin(self.site_url, '/favicon.ico')
-				print('got icon from favicon.ico')
+				print('got icon from favicon.ico:{}'.format(url))
 		icon=requests.get(url)
 		if icon.status_code in (404, 410, 500, 502):
+			print('got status:{} on {}'.format(icon.status_code, url))
 			return None
 		icon=File(BytesIO(icon.content))
 		output=File(BytesIO())
@@ -123,11 +135,6 @@ class Feed(models.Model):
 			if tmp[0] is None:
 				feed=tmp[1]
 			else:
-				self.success=False
-				self.last_error=str(tmp[0])
-				now=timezone('utc').localize(datetime.utcnow())
-				self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
-				self.save()
 				return i
 
 		for entry in feed.entries:
@@ -186,21 +193,25 @@ class Feed(models.Model):
 		# self.purge()
 		return i
 
-	def purge(self):
-		interval=self.purge_interval if self.purge_interval!=0 else settings.DEFAULT_ARTICLE_PURGE_INTERVAL
-		interval=datetime.now(timezone('UTC')) - timedelta(days=interval)
-		articles=Article.objects.filter(feed=self, date_added__lte=interval)
-		for article in articles:
-			if not article.read and not settings.PURGE_UNREAD:
-				continue
-			article.delete()
+	# def purge(self):
+	# 	interval=self.purge_interval if self.purge_interval!=0 else settings.DEFAULT_ARTICLE_PURGE_INTERVAL
+	# 	interval=datetime.now(timezone('UTC')) - timedelta(days=interval)
+	# 	articles=Article.objects.filter(feed=self, date_added__lte=interval)
+	# 	for article in articles:
+	# 		if not article.read and not settings.PURGE_UNREAD:
+	# 			continue
+	# 		article.delete()
 
 	@property
 	def get_feed_image(self):
-		if self.feed_image!='':
+		if self.feed_image is not None and self.feed_image!='':
 			return self.feed_image.url
 		else:
 			return None
+
+	@property
+	def needs_update(self):
+		return self.next_fetch<timezone('utc').localize(datetime.utcnow())
 
 	def __unicode__(self):
 		return unicode(self.title)
@@ -331,6 +342,22 @@ def recalulate_feed_cache(feed):
 def add_feed(sender, **kwargs):
 	if kwargs['created']:
 		kwargs['instance'].initialize()
+
+
+@receiver(pre_delete, sender=Feed, dispatch_uid='feeds.delete_feed')
+def delete_feed(sender, **kwargs):
+	instance=kwargs['instance']
+	if instance.feed_image is not None:
+			instance.feed_image.delete()
+
+
+@receiver(pre_delete, sender=UserFeedSubscription, dispatch_uid='feeds.delete_subscription')
+def delete_subscription(sender, **kwargs):
+	instance=kwargs['instance']
+	UserArticleInfo.objects.filter(user=instance.user, feed=instance.feed).delete()
+	UserFeedCache.objects.filter(user=instance.user, feed=instance.feed)
+	if UserFeedSubscription.objects.filter(feed=instance.feed).count() - 1==0:
+		Feed.objects.filter(pk=instance.feed_id).update(enabled=False)
 
 
 def fix_timestamp_dst(tt):
