@@ -30,10 +30,23 @@ html, body, body>div.container {height:100%;overflow:hidden;}
 .feed-list {
 	& > ul {
 		& > li {
+			& > div.marker {
+				display:none;
+			}
 			&.active {
 				background-color:paleturquoise;
 			}
 			&:hover {
+				& > div.marker {
+					&:hover {
+						background-color:yellow;
+					}
+					display:inline-block;
+					float:right;
+					height:100%;
+					padding-top:2px;
+					top:0px;
+				}
 				background-color:paleturquoise;
 			}
 			&.error {
@@ -60,6 +73,7 @@ html, body, body>div.container {height:100%;overflow:hidden;}
 	// & > hr {
 	// 	margin:2px 0 2px 25px;
 	// }
+	border-right:1px solid fade(gray, 25%);
 	font-size:10px;
 	margin-left:0px;
 	overflow:hidden;
@@ -165,6 +179,7 @@ html, body, body>div.container {height:100%;overflow:hidden;}
 				}
 			}
 			border:1px solid fade(gray, 25%);
+			border-left:none;
 			list-style:none;
 			margin:0 0 -1px 0;
 			// height:18px;

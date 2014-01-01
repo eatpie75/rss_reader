@@ -2,11 +2,11 @@ import requests
 import socket
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-# from django.conf import settings
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files import File
 from django.db import models
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from feeds import feedparser
@@ -19,7 +19,7 @@ from urlparse import urljoin
 
 class Feed(models.Model):
 	id=models.AutoField(primary_key=True, db_index=True)
-	title=models.CharField(max_length=200, blank=True, null=True)
+	title=models.CharField(max_length=200, blank=True)
 	feed_url=models.URLField()
 	site_url=models.URLField(blank=True, null=True)
 	feed_image=models.ImageField(upload_to='feeds', blank=True, null=True)
@@ -31,7 +31,7 @@ class Feed(models.Model):
 	category=models.ForeignKey('Category', blank=True, null=True)
 	enabled=models.BooleanField(default=True)
 	success=models.BooleanField(default=True)
-	last_error=models.CharField(max_length=500, blank=True, null=True)
+	last_error=models.CharField(max_length=500, blank=True)
 
 	def initialize(self):
 		tmp=self.get_feed()
@@ -202,6 +202,32 @@ class Feed(models.Model):
 	# 			continue
 	# 		article.delete()
 
+	def get_basic_info(self):
+		return {
+			'pk':self.pk,
+			'enabled':self.enabled,
+			'success':self.success,
+			'title':self.title,
+			'site_url':self.site_url,
+			'image':self.get_feed_image
+		}
+
+	def get_all_info(self):
+		return {
+			'pk':self.pk,
+			'enabled':self.enabled,
+			'success':self.success,
+			'title':self.title,
+			'feed_url':self.feed_url,
+			'site_url':self.site_url,
+			'image':self.get_feed_image,
+			'last_fetched':self.last_fetched,
+			'last_updated':self.last_updated,
+			'update_interval':self.update_interval,
+			'next_fetch':self.next_fetch,
+			'needs_update':self.needs_update
+		}
+
 	@property
 	def get_feed_image(self):
 		if self.feed_image is not None and self.feed_image!='':
@@ -225,13 +251,13 @@ class Article(models.Model):
 	feed=models.ForeignKey(Feed)
 	guid=models.CharField(db_index=True, max_length=200)
 	title=models.CharField(max_length=500)
-	author=models.CharField(max_length=250, blank=True, null=True)
+	author=models.CharField(max_length=250, blank=True)
 	date_added=models.DateTimeField()
 	date_published=models.DateTimeField()
 	date_updated=models.DateTimeField()
 	date_last_seen=models.DateTimeField()
-	description=models.TextField(blank=True, null=True)
-	content=models.TextField(blank=True, null=True)
+	description=models.TextField(blank=True)
+	content=models.TextField(blank=True)
 	url=models.URLField()
 
 	def create_user_info(self):
@@ -280,6 +306,30 @@ class UserArticleInfo(models.Model):
 	read=models.BooleanField(db_index=True, default=False)
 	date_read=models.DateTimeField(blank=True, null=True)
 
+	def get_basic_info(self):
+		return {
+			'pk':self.pk,
+			'user':self.user.pk,
+			'feed':{
+				'pk':self.feed.pk,
+				'title':self.feed.title,
+				'image':self.feed.get_feed_image if self.feed.get_feed_image is not None else settings.STATIC_URL + 'img/rss.png'
+			},
+			'article':{
+				'pk':self.article.pk,
+				'title':self.article.title,
+				'author':self.article.author,
+				'date_published':self.article.date_published,
+				'date_published_relative':self.article.date_published_relative,
+				'date_added':self.article.date_added,
+				# 'description':self.article.description,
+				# 'content':self.article.content,
+				'url':self.article.url
+			},
+			'read':self.read,
+			'date_read':self.date_read
+		}
+
 	class Meta:
 		index_together=[['user', 'feed'], ['user', 'feed', 'read']]
 		ordering=['-article__date_published', '-article__date_added', '-article__id']
@@ -289,7 +339,7 @@ class UserArticleInfo(models.Model):
 class UserFeedCache(models.Model):
 	user=models.ForeignKey(User)
 	feed=models.ForeignKey(Feed)
-	unread=models.IntegerField(default=0)
+	unread=models.PositiveIntegerField(default=0)
 
 	def recalculate(self):
 		self.unread=UserArticleInfo.objects.filter(user=self.user, feed=self.feed, read=False).count()
@@ -297,15 +347,14 @@ class UserFeedCache(models.Model):
 		return self
 
 	def add(self, value=1):
-		self.unread+=value
+		self.unread=F('unread') + value
 		self.save()
-		return self.unread
+		return UserFeedCache.objects.get(pk=self.pk).unread
 
 	def sub(self, value=1):
-		if self.unread - value>=0:
-			self.unread-=value
-			self.save()
-		return self.unread
+		self.unread=F('unread') - value
+		self.save()
+		return UserFeedCache.objects.get(pk=self.pk).unread
 
 	class Meta:
 		index_together=[['user', 'feed'],]

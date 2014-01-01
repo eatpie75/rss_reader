@@ -7,6 +7,7 @@ urlpatterns=patterns('',
 	# Examples:
 	url(r'^feeds/', include('feeds.urls')),
 	url(r'^$', include('viewer.urls')),
+	url(r'^login/$', 'django.contrib.auth.views.login', {'template_name':'login.html.j2'}),
 	# url(r'^rss/', include('rss.foo.urls')),
 
 	# Uncomment the admin/doc line below to enable admin documentation:

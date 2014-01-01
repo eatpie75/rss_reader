@@ -1,13 +1,15 @@
 class FeedManager
 	constructor:()->
-		@current_feed=0
+		@current_feed=-1
 		@filter_read=true
 		@last_article=Infinity
 		@last_article_visible=false
 		@more_articles_to_load=true
 		@busy=false
-		@get_current_feed()
-		@set_current_feed()
+		@refresh_feed_list(()=>
+			@get_current_feed()
+			@set_current_feed()
+		)
 
 		@buttons={}
 		@bind(true, true)
@@ -53,39 +55,44 @@ class FeedManager
 			dataType:'json'
 			success:(data)=>
 				@reset_last_article()
-				@update_last_article(data)
+				@update_last_article(data.articles)
 				@current_feed=feed
 				@set_current_feed()
-				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data}))
+				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
 				if keep_active_article
 					$('div.article-list>ul').prepend(tmp)
 				@bind()
 				$('.article-list').scrollTop(0)
 				if data.length==50
 					@more_articles_to_load=true
+				@update_unread(data.unread, feed)
 				@busy=false
 		})
 	load_more_articles:()->
-		@busy=true
 		feed=@current_feed
 		if not @more_articles_to_load
 			return
+		@busy=true
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 			data:{'limit':15, 'all':!@filter_read, 'last_article':@last_article}
 			dataType:'json'
 			success:(data)=>
-				@update_last_article(data)
-				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data}))
+				@update_last_article(data.articles)
+				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data.articles}))
 				@bind()
 				if data.length<15
 					console.log 'no more'
 					@more_articles_to_load=false
+				@update_unread(data.unread, feed)
 				@busy=false
 		})
-	update_unread:(data)->
-		for feed in data
-			$("#feed-#{feed.feed}>small").text("(#{feed.count})")
+	update_unread:(data, feed=null)->
+		if feed?
+			$("#feed-#{feed}>small").text("(#{data})")
+		else
+			for feed in data
+				$("#feed-#{feed.feed}>small").text("(#{feed.unread})")
 		@update_title()
 	mark_read:(article)->
 		$.ajax({
@@ -192,14 +199,16 @@ class FeedManager
 		else
 			@toggle_article(prev)
 	add_feed:()->
-		if not $('#add_feed_modal').length
-			$('body').append(Mark.up(window.templates.modal))
-			$('#add_feed_modal .modal-body').html(Mark.up(window.templates.add_feed_form))
-			$('#add_feed_submit').click((e)=>
-				$('#add_feed_submit').addClass('disabled')
+		if not $('#modal').length or $('#modal').data('for')!='add'
+			if $('#modal').data('for')!='add'
+				$('#modal').remove()
+			$('body').append(Mark.up(window.templates.modal, {'for':'add', 'title':'Add Feed', 'modal_submit_text':'Add Feed'}))
+			$('#modal .modal-body').html(Mark.up(window.templates.add_feed_form))
+			$('#modal_submit').click((e)=>
+				$('#modal_submit').addClass('disabled')
 				@add_feed_submit()
 			)
-		$('#add_feed_modal').modal()
+		$('#modal').modal()
 	add_feed_submit:()->
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/add/"
@@ -209,14 +218,61 @@ class FeedManager
 			headers:{'X-CSRFToken':window.CSRF_TOKEN}
 			success:(data)=>
 				if 'error' of data
-					$('#add_feed_modal .modal-body>.alert').text(data.error)
-					$('#add_feed_modal .modal-body>.alert').removeClass('hidden')
+					$('#modal .modal-body>.alert').text(data.error)
+					$('#modal .modal-body>.alert').removeClass('hidden')
+					$('#modal_submit').removeClass('disabled')
 				else
 					@refresh_feed_list(()=>
-						$('#add_feed_modal').on('hidden.bs.modal', (e)->
-							$('#add_feed_modal').remove()
+						$('#modal').on('hidden.bs.modal', (e)->
+							$('#modal').remove()
 						)
-						$('#add_feed_modal').modal('hide')
+						$('#modal').modal('hide')
+						@change_feed(data.pk)
+					)
+		})
+	edit_feed:(feed)->
+		if not $('#modal').length or $('#modal').data('for')!='edit'
+			if $('#modal').data('for')!='edit'
+				$('#modal').remove()
+			$('body').append(Mark.up(window.templates.modal, {'for':'edit', 'title':'Edit Feed', 'modal_submit_text':'Edit Feed'}))
+			$('#modal .modal-body').html("<div class='progress progress-striped active'><div class='progress-bar' role='progressbar' style='width: 100%'></div></div>")
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/info"
+			dataType:'json'
+			success:(data)=>
+				$('#modal .modal-body').html(Mark.up(window.templates.edit_feed_form, data))
+				$('#modal_submit').click((e)=>
+					$('#modal_submit').addClass('disabled')
+					$('#modal .modal-body>.alert').addClass('hidden')
+					$("#modal input").parents('.form-group').removeClass('has-error')
+					@edit_feed_submit(feed)
+				)
+
+		})
+		$('#modal').modal()
+	edit_feed_submit:(feed)->
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/edit"
+			type:'POST'
+			dataType:'json'
+			data:$('#modal-form').serialize()
+			headers:{'X-CSRFToken':window.CSRF_TOKEN}
+			success:(data)=>
+				if 'error' of data or 'form_errors' of data
+					if 'error' of data
+						$('#modal .modal-body>.alert').text(data.error)
+						$('#modal .modal-body>.alert').removeClass('hidden')
+					if 'form_errors' of data
+						for name, error of data.form_errors
+							field=$("#modal input[name=#{name}]")
+							field.parents('.form-group').addClass('has-error')
+					$('#modal_submit').removeClass('disabled')
+				else
+					@refresh_feed_list(()=>
+						$('#modal').on('hidden.bs.modal', (e)->
+							$('#modal').remove()
+						)
+						$('#modal').modal('hide')
 						@change_feed(data.pk)
 					)
 		})
@@ -243,6 +299,12 @@ class FeedManager
 				id=row.data('id')
 				_this.change_feed(id)
 			)
+			$('li.feed-row>div.marker').click((e)->
+				e.stopPropagation()
+				row=$(@).parent()
+				id=row.data('id')
+				_this.edit_feed(id)
+			)
 		if initial
 			@buttons.mark_all_read=$('#mark-all-read')
 			@buttons.mark_all_read.click((e)->
@@ -268,7 +330,7 @@ class FeedManager
 				else if e.which==75
 					_this.prev_article()
 			)
-			@change_feed(@get_current_feed())
+			# @change_feed(@get_current_feed())
 			$('.article-list').scroll(()->
 				if $('.article-list').scrollTop()==0 or _this.busy
 					return
@@ -280,6 +342,9 @@ class FeedManager
 					_this.last_article_visible=false
 			)
 
+Mark.pipes.datetime=(date)->
+	new Date(+date || date).toLocaleString()
+
 window.templates={
 	'feed_list':"
 		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>
@@ -288,6 +353,7 @@ window.templates={
 		{{feed_list}}
 		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>
 			<span>{{title}}</span> <small>({{unread}})</small>
+			<div class='marker glyphicon glyphicon-wrench'></div>
 		</li>
 		{{/feed_list}}",
 	'articles':"{{articles}}
@@ -313,17 +379,16 @@ window.templates={
 	</li>
 	{{/articles}}",
 	'modal':"
-		<div class='modal fade' id='add_feed_modal' tabindex='-1' role='dialog'>
+		<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'>
 			<div class='modal-dialog'>
 				<div class='modal-content'>
 					<div class='modal-header'>
 						<button type='button' class='close' data-dismiss='modal'>&times;</button>
-						<h4 class='modal-title' id='add_feed_modal_label'>Add feed</h4>
+						<h4 class='modal-title' id='modal_label'>{{title}}</h4>
 					</div>
 					<div class='modal-body'></div>
 					<div class='modal-footer'>
-						<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>
-						<button type='button' class='btn btn-primary' id='add_feed_submit'>Add feed</button>
+						<button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button>
 					</div>
 				</div>
 			</div>
@@ -337,7 +402,34 @@ window.templates={
 					<input class='form-control' id='id_url' name='url' type='url'>
 				</div>
 			</div>
-		</form>"
+		</form>",
+	'edit_feed_form':"
+		<div class='alert alert-danger hidden'></div>
+		<form id='modal-form' class='form-horizontal' role='form'>
+			<div class='form-group'>
+				<label class='col-md-3 control-label' for='id_title'>Feed Title</label>
+				<div class='col-md-11'>
+					<input class='form-control' id='id_title' name='title' value='{{title}}'>
+				</div>
+			</div>
+			<div class='form-group'>
+				<label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label>
+				<div class='col-md-11'>
+					<input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url}}'>
+				</div>
+			</div>
+			<div class='form-group'>
+				<label class='col-md-3 control-label' for='id_site_url'>Site URL</label>
+				<div class='col-md-11'>
+					<input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url}}'>
+				</div>
+			</div>
+		</form>
+		<div>
+		Last fetched:{{last_fetched|datetime}}<br>
+		Next fetch:{{next_fetch|datetime}}
+		</div>
+	"
 }
 
 $(document).ready(->

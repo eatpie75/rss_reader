@@ -91,6 +91,8 @@ STATICFILES_FINDERS = (
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = 'fpd4#g2#o!_u67@5#&a)a)rqma&pbe4m@+y*_i@h-ah4qc-*0e'
 
+LOGIN_URL='/login/'
+
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
 	'django_jinja.loaders.AppLoader',

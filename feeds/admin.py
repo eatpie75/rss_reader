@@ -3,7 +3,7 @@ from models import Feed, Article, Category, UserFeedSubscription, UserArticleInf
 
 
 class FeedAdmin(admin.ModelAdmin):
-	list_display=('title', 'last_fetched', 'last_updated')
+	list_display=('title', 'last_fetched', 'last_updated', 'update_interval', 'show_favicon')
 	actions=['force_update', 'update_favicon']
 
 	def force_update(self, request, qs):
@@ -24,6 +24,15 @@ class FeedAdmin(admin.ModelAdmin):
 				i+=1
 		self.message_user(request, '{} favicon(s) were updated'.format(i))
 	update_favicon.short_description='Update favicons'
+
+	def show_favicon(self, obj):
+		tmp=obj.get_feed_image
+		if tmp is not None:
+			return "<img src='{}'>".format(obj.get_feed_image)
+		else:
+			return ''
+	show_favicon.allow_tags=True
+	show_favicon.short_description='Favicon'
 
 
 class ArticleAdmin(admin.ModelAdmin):

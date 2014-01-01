@@ -4,14 +4,17 @@
 
   FeedManager = (function() {
     function FeedManager() {
-      this.current_feed = 0;
+      var _this = this;
+      this.current_feed = -1;
       this.filter_read = true;
       this.last_article = Infinity;
       this.last_article_visible = false;
       this.more_articles_to_load = true;
       this.busy = false;
-      this.get_current_feed();
-      this.set_current_feed();
+      this.refresh_feed_list(function() {
+        _this.get_current_feed();
+        return _this.set_current_feed();
+      });
       this.buttons = {};
       this.bind(true, true);
     }
@@ -82,11 +85,11 @@
         dataType: 'json',
         success: function(data) {
           _this.reset_last_article();
-          _this.update_last_article(data);
+          _this.update_last_article(data.articles);
           _this.current_feed = feed;
           _this.set_current_feed();
           $('.article-list>ul').html(Mark.up(window.templates['articles'], {
-            'articles': data
+            'articles': data.articles
           }));
           if (keep_active_article) {
             $('div.article-list>ul').prepend(tmp);
@@ -96,6 +99,7 @@
           if (data.length === 50) {
             _this.more_articles_to_load = true;
           }
+          _this.update_unread(data.unread, feed);
           return _this.busy = false;
         }
       });
@@ -104,11 +108,11 @@
     FeedManager.prototype.load_more_articles = function() {
       var feed,
         _this = this;
-      this.busy = true;
       feed = this.current_feed;
       if (!this.more_articles_to_load) {
         return;
       }
+      this.busy = true;
       return $.ajax({
         url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
         data: {
@@ -118,25 +122,33 @@
         },
         dataType: 'json',
         success: function(data) {
-          _this.update_last_article(data);
+          _this.update_last_article(data.articles);
           $('.article-list>ul').append(Mark.up(window.templates['articles'], {
-            'articles': data
+            'articles': data.articles
           }));
           _this.bind();
           if (data.length < 15) {
             console.log('no more');
             _this.more_articles_to_load = false;
           }
+          _this.update_unread(data.unread, feed);
           return _this.busy = false;
         }
       });
     };
 
-    FeedManager.prototype.update_unread = function(data) {
-      var feed, _i, _len;
-      for (_i = 0, _len = data.length; _i < _len; _i++) {
-        feed = data[_i];
-        $("#feed-" + feed.feed + ">small").text("(" + feed.count + ")");
+    FeedManager.prototype.update_unread = function(data, feed) {
+      var _i, _len;
+      if (feed == null) {
+        feed = null;
+      }
+      if (feed != null) {
+        $("#feed-" + feed + ">small").text("(" + data + ")");
+      } else {
+        for (_i = 0, _len = data.length; _i < _len; _i++) {
+          feed = data[_i];
+          $("#feed-" + feed.feed + ">small").text("(" + feed.unread + ")");
+        }
       }
       return this.update_title();
     };
@@ -297,15 +309,22 @@
 
     FeedManager.prototype.add_feed = function() {
       var _this = this;
-      if (!$('#add_feed_modal').length) {
-        $('body').append(Mark.up(window.templates.modal));
-        $('#add_feed_modal .modal-body').html(Mark.up(window.templates.add_feed_form));
-        $('#add_feed_submit').click(function(e) {
-          $('#add_feed_submit').addClass('disabled');
+      if (!$('#modal').length || $('#modal').data('for') !== 'add') {
+        if ($('#modal').data('for') !== 'add') {
+          $('#modal').remove();
+        }
+        $('body').append(Mark.up(window.templates.modal, {
+          'for': 'add',
+          'title': 'Add Feed',
+          'modal_submit_text': 'Add Feed'
+        }));
+        $('#modal .modal-body').html(Mark.up(window.templates.add_feed_form));
+        $('#modal_submit').click(function(e) {
+          $('#modal_submit').addClass('disabled');
           return _this.add_feed_submit();
         });
       }
-      return $('#add_feed_modal').modal();
+      return $('#modal').modal();
     };
 
     FeedManager.prototype.add_feed_submit = function() {
@@ -320,14 +339,83 @@
         },
         success: function(data) {
           if ('error' in data) {
-            $('#add_feed_modal .modal-body>.alert').text(data.error);
-            return $('#add_feed_modal .modal-body>.alert').removeClass('hidden');
+            $('#modal .modal-body>.alert').text(data.error);
+            $('#modal .modal-body>.alert').removeClass('hidden');
+            return $('#modal_submit').removeClass('disabled');
           } else {
             return _this.refresh_feed_list(function() {
-              $('#add_feed_modal').on('hidden.bs.modal', function(e) {
-                return $('#add_feed_modal').remove();
+              $('#modal').on('hidden.bs.modal', function(e) {
+                return $('#modal').remove();
               });
-              $('#add_feed_modal').modal('hide');
+              $('#modal').modal('hide');
+              return _this.change_feed(data.pk);
+            });
+          }
+        }
+      });
+    };
+
+    FeedManager.prototype.edit_feed = function(feed) {
+      var _this = this;
+      if (!$('#modal').length || $('#modal').data('for') !== 'edit') {
+        if ($('#modal').data('for') !== 'edit') {
+          $('#modal').remove();
+        }
+        $('body').append(Mark.up(window.templates.modal, {
+          'for': 'edit',
+          'title': 'Edit Feed',
+          'modal_submit_text': 'Edit Feed'
+        }));
+        $('#modal .modal-body').html("<div class='progress progress-striped active'><div class='progress-bar' role='progressbar' style='width: 100%'></div></div>");
+      }
+      $.ajax({
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/info",
+        dataType: 'json',
+        success: function(data) {
+          $('#modal .modal-body').html(Mark.up(window.templates.edit_feed_form, data));
+          return $('#modal_submit').click(function(e) {
+            $('#modal_submit').addClass('disabled');
+            $('#modal .modal-body>.alert').addClass('hidden');
+            $("#modal input").parents('.form-group').removeClass('has-error');
+            return _this.edit_feed_submit(feed);
+          });
+        }
+      });
+      return $('#modal').modal();
+    };
+
+    FeedManager.prototype.edit_feed_submit = function(feed) {
+      var _this = this;
+      return $.ajax({
+        url: "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/edit",
+        type: 'POST',
+        dataType: 'json',
+        data: $('#modal-form').serialize(),
+        headers: {
+          'X-CSRFToken': window.CSRF_TOKEN
+        },
+        success: function(data) {
+          var error, field, name, _ref;
+          if ('error' in data || 'form_errors' in data) {
+            if ('error' in data) {
+              $('#modal .modal-body>.alert').text(data.error);
+              $('#modal .modal-body>.alert').removeClass('hidden');
+            }
+            if ('form_errors' in data) {
+              _ref = data.form_errors;
+              for (name in _ref) {
+                error = _ref[name];
+                field = $("#modal input[name=" + name + "]");
+                field.parents('.form-group').addClass('has-error');
+              }
+            }
+            return $('#modal_submit').removeClass('disabled');
+          } else {
+            return _this.refresh_feed_list(function() {
+              $('#modal').on('hidden.bs.modal', function(e) {
+                return $('#modal').remove();
+              });
+              $('#modal').modal('hide');
               return _this.change_feed(data.pk);
             });
           }
@@ -367,6 +455,13 @@
           id = row.data('id');
           return _this.change_feed(id);
         });
+        $('li.feed-row>div.marker').click(function(e) {
+          var id, row;
+          e.stopPropagation();
+          row = $(this).parent();
+          id = row.data('id');
+          return _this.edit_feed(id);
+        });
       }
       if (initial) {
         this.buttons.mark_all_read = $('#mark-all-read');
@@ -394,7 +489,6 @@
             return _this.prev_article();
           }
         });
-        this.change_feed(this.get_current_feed());
         return $('.article-list').scroll(function() {
           if ($('.article-list').scrollTop() === 0 || _this.busy) {
             return;
@@ -415,11 +509,16 @@
 
   })();
 
+  Mark.pipes.datetime = function(date) {
+    return new Date(+date || date).toLocaleString();
+  };
+
   window.templates = {
-    'feed_list': "		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>			Unread Items <small>({{total_unread_count}})</small>		</li>		{{feed_list}}		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>			<span>{{title}}</span> <small>({{unread}})</small>		</li>		{{/feed_list}}",
+    'feed_list': "		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>			Unread Items <small>({{total_unread_count}})</small>		</li>		{{feed_list}}		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>			<span>{{title}}</span> <small>({{unread}})</small>			<div class='marker glyphicon glyphicon-wrench'></div>		</li>		{{/feed_list}}",
     'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title}}</div>			<div class='article-title'>{{article.title}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}",
-    'modal': "		<div class='modal fade' id='add_feed_modal' tabindex='-1' role='dialog'>			<div class='modal-dialog'>				<div class='modal-content'>					<div class='modal-header'>						<button type='button' class='close' data-dismiss='modal'>&times;</button>						<h4 class='modal-title' id='add_feed_modal_label'>Add feed</h4>					</div>					<div class='modal-body'></div>					<div class='modal-footer'>						<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>						<button type='button' class='btn btn-primary' id='add_feed_submit'>Add feed</button>					</div>				</div>			</div>		</div>",
-    'add_feed_form': "		<div class='alert alert-danger hidden'></div>		<form class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-2 control-label' for='id_url'>Feed URL</label>				<div class='col-md-12'>					<input class='form-control' id='id_url' name='url' type='url'>				</div>			</div>		</form>"
+    'modal': "		<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'>			<div class='modal-dialog'>				<div class='modal-content'>					<div class='modal-header'>						<button type='button' class='close' data-dismiss='modal'>&times;</button>						<h4 class='modal-title' id='modal_label'>{{title}}</h4>					</div>					<div class='modal-body'></div>					<div class='modal-footer'>						<button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button>					</div>				</div>			</div>		</div>",
+    'add_feed_form': "		<div class='alert alert-danger hidden'></div>		<form class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-2 control-label' for='id_url'>Feed URL</label>				<div class='col-md-12'>					<input class='form-control' id='id_url' name='url' type='url'>				</div>			</div>		</form>",
+    'edit_feed_form': "		<div class='alert alert-danger hidden'></div>		<form id='modal-form' class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_title'>Feed Title</label>				<div class='col-md-11'>					<input class='form-control' id='id_title' name='title' value='{{title}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_site_url'>Site URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url}}'>				</div>			</div>		</form>		<div>		Last fetched:{{last_fetched|datetime}}<br>		Next fetch:{{next_fetch|datetime}}		</div>	"
   };
 
   $(document).ready(function() {
