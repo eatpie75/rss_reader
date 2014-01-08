@@ -10,6 +10,9 @@ from pytz import timezone
 from .forms import AddFeedForm, EditFeedForm
 from .models import Feed, Article, UserArticleInfo, UserFeedSubscription, UserFeedCache, recalculate_user_cache
 
+import logging
+logger=logging.getLogger(__name__)
+
 
 class DateEncoder(json.JSONEncoder):
 	def default(self, obj):
@@ -89,7 +92,7 @@ def refresh_feed(request, feed):
 		for feed in Feed.objects.filter(last_updated__lt=datetime.now(timezone('utc')) - timedelta(minutes=10)):
 			new_articles+=feed.update()
 			data.append({'feed':feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=feed).unread})
-		print('{} new article(s)'.format(new_articles))
+		logger.info('{} new article(s)'.format(new_articles))
 	unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 	data.append({'feed':0, 'unread':unread_count})
 	return HttpResponse(json.dumps(data), content_type='application/json')

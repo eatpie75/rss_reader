@@ -6,11 +6,13 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rssproject.settings")
 from apscheduler.scheduler import Scheduler
 from datetime import datetime
 from django import db
+from django.conf import settings
 from feeds.models import Feed
 from pytz import timezone
 
 
-logging.getLogger('apscheduler.scheduler').addHandler(logging.StreamHandler())
+logging.config.dictConfig(settings.LOGGING)
+logger=logging.getLogger('apscheduler.scheduler')
 
 
 def update_feeds():
@@ -23,7 +25,7 @@ def update_feeds():
 		if f>20:
 			break
 	if i>0:
-		print('{} new article(s)'.format(i))
+		logger.info('{} new article(s)'.format(i))
 	db.close_connection()
 	return None
 

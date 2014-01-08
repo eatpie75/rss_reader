@@ -155,6 +155,14 @@ DEFAULT_FEED_UPDATE_INTERVAL=60
 DEFAULT_ARTICLE_PURGE_INTERVAL=30
 PURGE_UNREAD=False
 
+
+class SchedulerFilter:
+	def filter(self, record):
+		if record.msg.startswith('Running job') or record.msg.endswith('executed successfully'):
+			return 0
+		else:
+			return 1
+
 try:
 	from settings_local import *
 except ImportError:

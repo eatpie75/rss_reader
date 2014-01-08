@@ -17,6 +17,9 @@ from pytz import timezone
 from time import mktime
 from urlparse import urljoin
 
+import logging
+logger=logging.getLogger(__name__)
+
 
 class Feed(models.Model):
 	id=models.AutoField(primary_key=True, db_index=True)
@@ -47,7 +50,7 @@ class Feed(models.Model):
 			self.save()
 			return False
 
-		print("Initializing {}".format(self.feed_url))
+		logging.info("Initializing {}".format(self.feed_url))
 		self.title=feed.feed.title
 		if 'link' in feed.feed:
 			self.site_url=feed.feed.link
@@ -67,11 +70,9 @@ class Feed(models.Model):
 		# if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
 		# 	return (None, feed)
 		if feed.bozo and not len(feed.entries):  # (feed.bozo_exception.args[0]!='XML or text declaration not at start of entity' and not isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
-			print('exception')
-			print(feed.bozo_exception)
-			# print(type(feed.bozo_exception))
-			# print(isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
-			if 'status' in feed: print(feed.status)
+			logger.error('exception')
+			logger.error(feed.bozo_exception)
+			if 'status' in feed: logger.info(feed.status)
 			self.success=False
 			self.last_error=str(feed.bozo_exception)
 			# now=timezone('utc').localize(datetime.utcnow())
@@ -79,10 +80,10 @@ class Feed(models.Model):
 			self.save()
 			return (feed.bozo_exception, None)
 		if feed.status==301:
-			print('got status:301, updating feed url to:{}'.format(feed.href))
+			logger.info('got status:301, updating feed url to:{}'.format(feed.href))
 			self.feed_url=feed.href
 		elif not 199<feed.status<300:
-			print('got status:{}'.format(feed.status))
+			logger.error('got status:{}'.format(feed.status))
 		return (None, feed)
 
 	def get_favicon(self, feed=None):
@@ -95,29 +96,29 @@ class Feed(models.Model):
 
 		if 'icon' in feed.feed:
 			url=feed.feed.icon
-			print('got icon from rss: {}'.format(url))
+			logger.info('got icon from rss: {}'.format(url))
 		else:
 			tmp=requests.get(self.site_url)
 			if tmp.status_code in (404, 410, 500, 502):
-				print('site status code: {}'.format(tmp.status_code))
+				logger.error('site status code: {}'.format(tmp.status_code))
 				return None
 			tmp=BeautifulSoup(tmp.text)
 			tmp=tmp.find('link', rel='icon')
 			if tmp is not None:
 				url=urljoin(self.site_url, tmp['href'])
-				print('got icon from html: {}'.format(url))
+				logger.info('got icon from html: {}'.format(url))
 			else:
 				url=urljoin(self.site_url, '/favicon.ico')
-				print('got icon from favicon.ico: {}'.format(url))
+				logger.info('got icon from favicon.ico: {}'.format(url))
 		icon=requests.get(url)
 		if icon.status_code in (404, 410, 500, 502):
-			print('got status: {} on {}'.format(icon.status_code, url))
+			logger.error('got status: {} on {}'.format(icon.status_code, url))
 			return None
 		icon=File(BytesIO(icon.content))
 		output=File(BytesIO())
 		try:
 			image=Image.open(icon)
-			# print('really opened image')
+			logger.debug('really opened image')
 		except:
 			return None
 		if image.mode!='RGBA':
@@ -135,7 +136,7 @@ class Feed(models.Model):
 			return 0
 
 		i=0
-		print("Updating {}:".format(self.title)),
+		logger.info("Updating {}:".format(self.title)),
 
 		if feed is None:
 			tmp=self.get_feed()
@@ -189,7 +190,7 @@ class Feed(models.Model):
 				article.description=entry.title[:500]
 			article.save()
 			article.create_user_info()
-		print('Added {} new article(s)'.format(i))
+		logger.info('Added {} new article(s)'.format(i))
 		now=timezone('utc').localize(datetime.utcnow())
 		self.last_fetched=now
 		self.next_fetch=now + timedelta(minutes=self.get_next_fetch())
