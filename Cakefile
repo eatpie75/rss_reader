@@ -5,7 +5,6 @@ path		= require('path')
 Cakefile		= 'Cakefile'
 BASE			= 'viewer'
 COFFEEINDIR		= "#{BASE}/static/coffee"
-COFFEEOUTDIR	= "#{BASE}/static/debug"
 JSOUTDIR		= "#{BASE}/static/js"
 LESSINDIR		= "#{BASE}/static/less"
 LESSINFILES		= [

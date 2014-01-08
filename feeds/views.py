@@ -22,7 +22,10 @@ class DateEncoder(json.JSONEncoder):
 def feed_info(request, feed):
 	feed=int(feed)
 	feed=Feed.objects.get(pk=feed)
-	return HttpResponse(json.dumps(feed.get_all_info(), cls=DateEncoder), content_type='application/json')
+	user_feed=UserFeedSubscription.objects.get(user=request.user, feed=feed)
+	data=feed.get_all_info()
+	data.update({'title':user_feed.title})
+	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
 
 
 @login_required
@@ -70,6 +73,7 @@ def mark_unread(request, article):
 	else:
 		data=[]
 	return HttpResponse(json.dumps(data), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)})
 
 
 @login_required
@@ -95,6 +99,7 @@ def refresh_feed(request, feed):
 def view_article(request, article):
 	article=UserArticleInfo.objects.filter(user=request.user, article=article).select_related('article__content')
 	return HttpResponse(json.dumps(article.values('article__content')[0], cls=DateEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(article.values('article__content')[0], cls=DateEncoder)})
 
 
 @login_required
@@ -109,7 +114,7 @@ def view_feed_list(request):
 	for user_feed in user_feeds:
 		feed_list.append({
 			'pk':user_feed.feed.id,
-			'title':user_feed.feed.title,
+			'title':user_feed.title,
 			'success':user_feed.feed.success,
 			'last_error':user_feed.feed.last_error,
 			'unread':individual_unread_count[user_feed.feed.id]
@@ -193,32 +198,45 @@ def add_feed(request):
 
 @login_required
 def edit_feed(request, feed):
+	def finish(data):
+		return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
 	feed=int(feed)
 	if request.method=='POST':
 		form=EditFeedForm(request.POST)
 		feed=Feed.objects.get(pk=feed)
+		user_feed=UserFeedSubscription.objects.get(user=request.user, feed=feed)
 		changes=False
-		data={}
 		if form.is_valid():
 			if form.cleaned_data['feed_url']!=feed.feed_url:
-				check=feed_utils.check_feed(form.cleaned_data['feed_url'], existence_check=False)
-				if check[0] is not None:
-					data={'error':'Error fetching feed.'}
-				else:
-					feed.feed_url=form.cleaned_data['feed_url']
-					changes=True
+				check=feed_utils.check_feed(form.cleaned_data['feed_url'], validity_check=False)
+				if check[1] is not None and check[1]!=feed.pk:
+					new_feed=Feed.objects.get(pk=check[1])
+					tmp=[]
+					for article in Article.objects.filter(feed=new_feed)[:10]:
+						tmp.append(UserArticleInfo(user=request.user, feed=new_feed, article=article))
+					UserArticleInfo.objects.bulk_create(tmp)
+					del tmp
+					UserArticleInfo.objects.filter(user=request.user, feed=feed).update(feed=new_feed)
+					user_feed.feed=new_feed
+					user_feed.save()
+				elif check[1]!=feed.pk:
+					valid=feed_utils.check_feed(form.cleaned_data['feed_url'], existence_check=False)
+					if valid[0] is not None:
+						return finish({'error':'Error fetching feed.'})
+					else:
+						feed.feed_url=form.cleaned_data['feed_url']
+						changes=True
 			if form.cleaned_data['site_url']!=feed.site_url:
 				feed.site_url=form.cleaned_data['site_url']
 				changes=True
-			if form.cleaned_data['title']!=feed.title:
-				feed.title=form.cleaned_data['title']
-				changes=True
+			if form.cleaned_data['title']!=user_feed.title:
+				user_feed.title=form.cleaned_data['title']
+				user_feed.save()
 			if changes:
 				feed.save()
-				# pass
-			data.update(feed.get_basic_info())
+				feed.update()
+			return finish(feed.get_basic_info())
 		else:
-			data={'form_errors':form.errors}
+			return finish({'form_errors':form.errors})
 	else:
-		data={'error':''}
-	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+		return finish({'error':''})

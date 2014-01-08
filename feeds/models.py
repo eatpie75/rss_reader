@@ -11,6 +11,7 @@ from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from feeds import feedparser
 from io import BytesIO
+from jsonfield import JSONField
 from PIL import Image
 from pytz import timezone
 from time import mktime
@@ -23,6 +24,7 @@ class Feed(models.Model):
 	feed_url=models.URLField()
 	site_url=models.URLField(blank=True, null=True)
 	feed_image=models.ImageField(upload_to='feeds', blank=True, null=True)
+	date_added=models.DateTimeField(blank=True, null=True)
 	last_fetched=models.DateTimeField(blank=True, null=True)
 	last_updated=models.DateTimeField(blank=True, null=True)
 	update_interval=models.IntegerField(default=300)
@@ -32,6 +34,8 @@ class Feed(models.Model):
 	enabled=models.BooleanField(default=True)
 	success=models.BooleanField(default=True)
 	last_error=models.CharField(max_length=500, blank=True)
+	statistics=JSONField(default={})
+	statistics_updated=models.DateTimeField(blank=True, null=True)
 
 	def initialize(self):
 		tmp=self.get_feed()
@@ -47,10 +51,13 @@ class Feed(models.Model):
 		self.title=feed.feed.title
 		if 'link' in feed.feed:
 			self.site_url=feed.feed.link
-		self.last_updated=datetime.now(timezone('UTC'))
+		now=timezone('utc').localize(datetime.utcnow())
+		self.date_added=now
+		self.last_updated=now
 		self.save()
 		self.update(feed)
 		self.get_favicon(feed)
+		self.update_statistics()
 
 	def get_feed(self):
 		old_timeout=socket.getdefaulttimeout()
@@ -67,8 +74,8 @@ class Feed(models.Model):
 			if 'status' in feed: print(feed.status)
 			self.success=False
 			self.last_error=str(feed.bozo_exception)
-			now=timezone('utc').localize(datetime.utcnow())
-			self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
+			# now=timezone('utc').localize(datetime.utcnow())
+			# self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
 			self.save()
 			return (feed.bozo_exception, None)
 		if feed.status==301:
@@ -88,29 +95,29 @@ class Feed(models.Model):
 
 		if 'icon' in feed.feed:
 			url=feed.feed.icon
-			print('got icon from rss:{}'.format(url))
+			print('got icon from rss: {}'.format(url))
 		else:
 			tmp=requests.get(self.site_url)
 			if tmp.status_code in (404, 410, 500, 502):
-				print('site status code:{}'.format(tmp.status_code))
+				print('site status code: {}'.format(tmp.status_code))
 				return None
 			tmp=BeautifulSoup(tmp.text)
 			tmp=tmp.find('link', rel='icon')
 			if tmp is not None:
 				url=urljoin(self.site_url, tmp['href'])
-				print('got icon from html:{}'.format(url))
+				print('got icon from html: {}'.format(url))
 			else:
 				url=urljoin(self.site_url, '/favicon.ico')
-				print('got icon from favicon.ico:{}'.format(url))
+				print('got icon from favicon.ico: {}'.format(url))
 		icon=requests.get(url)
 		if icon.status_code in (404, 410, 500, 502):
-			print('got status:{} on {}'.format(icon.status_code, url))
+			print('got status: {} on {}'.format(icon.status_code, url))
 			return None
 		icon=File(BytesIO(icon.content))
 		output=File(BytesIO())
 		try:
 			image=Image.open(icon)
-			print('really opened image')
+			# print('really opened image')
 		except:
 			return None
 		if image.mode!='RGBA':
@@ -135,6 +142,8 @@ class Feed(models.Model):
 			if tmp[0] is None:
 				feed=tmp[1]
 			else:
+				self.next_fetch=timezone('utc').localize(datetime.utcnow()) + timedelta(minutes=self.get_next_fetch())
+				self.save()
 				return i
 
 		for entry in feed.entries:
@@ -183,7 +192,7 @@ class Feed(models.Model):
 		print('Added {} new article(s)'.format(i))
 		now=timezone('utc').localize(datetime.utcnow())
 		self.last_fetched=now
-		self.next_fetch=now + timedelta(minutes=self.update_interval)
+		self.next_fetch=now + timedelta(minutes=self.get_next_fetch())
 		self.success=True
 		if i>0:
 			self.last_updated=now
@@ -192,6 +201,62 @@ class Feed(models.Model):
 
 		# self.purge()
 		return i
+
+	def update_statistics(self):
+		data={}
+		i=0
+		for article in Article.objects.filter(feed=self).only('date_published'):
+			date=article.date_published
+			weekday=date.weekday()
+			hour=date.hour
+			if weekday not in data:
+				data[weekday]={'count':0}
+			if hour not in data[weekday]:
+				data[weekday][hour]=0
+			data[weekday]['count']+=1
+			data[weekday][hour]+=1
+			i+=1
+		data['total']=i
+		self.statistics=data
+		self.statistics_updated=timezone('utc').localize(datetime.utcnow())
+		self.save()
+
+	def get_next_fetch(self):
+		now=timezone('utc').localize(datetime.utcnow())
+		data=self.statistics
+		if now.hour==23 and now.minute>=30:
+			now+=timedelta(minutes=30)
+		day=data.get(now.weekday(), {}).get('count', 0)
+		hour=data.get(now.weekday(), {}).get(now.hour, 0)
+
+		mod=1.0
+		long_interval=False
+		if self.last_updated<now - timedelta(days=180):
+			mod*=3
+		elif self.last_updated<now - timedelta(days=60):
+			mod*=2
+		elif self.last_updated<now - timedelta(days=30):
+			mod*=1.5
+		elif self.last_updated<now - timedelta(days=7):
+			mod*=1.05
+		if self.last_updated<now - timedelta(days=30):
+			long_interval=True
+
+		if not long_interval:
+			if day>=data['total'] / 7.0 / 1:
+				mod*=0.75
+			elif day<=data['total'] / 7.0 / 1 / 2:
+				mod*=1.25
+
+			if hour>=data['total'] / 24.0 / 2:
+				mod*=0.8
+			elif hour<=data['total'] / 24.0 / 2 / 2:
+				mod*=1.2
+
+		if not self.success:
+			mod*=1.5
+
+		return int(round(self.update_interval * mod))
 
 	# def purge(self):
 	# 	interval=self.purge_interval if self.purge_interval!=0 else settings.DEFAULT_ARTICLE_PURGE_INTERVAL
@@ -288,6 +353,7 @@ class Article(models.Model):
 class UserFeedSubscription(models.Model):
 	user=models.ForeignKey(User, db_index=True)
 	feed=models.ForeignKey(Feed, db_index=True)
+	title=models.CharField(max_length=200, blank=True)
 	date_added=models.DateTimeField(auto_now_add=True)
 
 	@property

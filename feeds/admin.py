@@ -1,9 +1,11 @@
+from datetime import datetime
 from django.contrib import admin
 from models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
+from pytz import timezone
 
 
 class FeedAdmin(admin.ModelAdmin):
-	list_display=('title', 'last_fetched', 'last_updated', 'update_interval', 'show_favicon')
+	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
 	actions=['force_update', 'update_favicon']
 
 	def force_update(self, request, qs):
@@ -33,6 +35,10 @@ class FeedAdmin(admin.ModelAdmin):
 			return ''
 	show_favicon.allow_tags=True
 	show_favicon.short_description='Favicon'
+
+	def time_til_fetch(self, obj):
+		return obj.next_fetch - timezone('utc').localize(datetime.utcnow())
+	time_til_fetch.short_description='Time til next fetch'
 
 
 class ArticleAdmin(admin.ModelAdmin):

@@ -339,8 +339,7 @@
         },
         success: function(data) {
           if ('error' in data) {
-            $('#modal .modal-body>.alert').text(data.error);
-            $('#modal .modal-body>.alert').removeClass('hidden');
+            $('#modal .modal-body>.alert').text(data.error).removeClass('hidden');
             return $('#modal_submit').removeClass('disabled');
           } else {
             return _this.refresh_feed_list(function() {
@@ -398,8 +397,7 @@
           var error, field, name, _ref;
           if ('error' in data || 'form_errors' in data) {
             if ('error' in data) {
-              $('#modal .modal-body>.alert').text(data.error);
-              $('#modal .modal-body>.alert').removeClass('hidden');
+              $('#modal .modal-body>.alert').text(data.error).removeClass('hidden');
             }
             if ('form_errors' in data) {
               _ref = data.form_errors;
@@ -513,12 +511,21 @@
     return new Date(+date || date).toLocaleString();
   };
 
+  Mark.pipes.sanitize = function(str) {
+    var input, output;
+    input = "[<>&\"'\/]";
+    output = ["&lt;", "&gt;", "&amp;", "&quot;", "&#39;", "&#x2F;"];
+    return str.replace(new RegExp(input, "g"), function(s) {
+      return output[input.indexOf(s) - 1];
+    });
+  };
+
   window.templates = {
-    'feed_list': "		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>			Unread Items <small>({{total_unread_count}})</small>		</li>		{{feed_list}}		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title}}'{{if not success}} title='{{last_error}}'{{/if}}>			<span>{{title}}</span> <small>({{unread}})</small>			<div class='marker glyphicon glyphicon-wrench'></div>		</li>		{{/feed_list}}",
-    'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title}}</div>			<div class='article-title'>{{article.title}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url}}' target='_blank'>{{article.title}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}",
-    'modal': "		<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'>			<div class='modal-dialog'>				<div class='modal-content'>					<div class='modal-header'>						<button type='button' class='close' data-dismiss='modal'>&times;</button>						<h4 class='modal-title' id='modal_label'>{{title}}</h4>					</div>					<div class='modal-body'></div>					<div class='modal-footer'>						<button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button>					</div>				</div>			</div>		</div>",
+    'feed_list': "		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>			Unread Items <small>({{total_unread_count}})</small>		</li>		{{feed_list}}		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title|sanitize}}'{{if not success}} title='{{last_error|sanitize}}'{{/if}}>			<span>{{title|sanitize}}</span> <small>({{unread}})</small>			<div class='marker glyphicon glyphicon-wrench'></div>		</li>		{{/feed_list}}",
+    'articles': "{{articles}}	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'	data-id='{{article.pk}}'>		<div class='article-row-title'>			<img class='feed-icon' src='{{feed.image}}'>			<div class='article-feed-name'>{{feed.title|sanitize}}</div>			<div class='article-title'>{{article.title|sanitize}}</div>			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>		</div>		<div class='article-content panel panel-default'>			<div class='article-content-title panel-heading'>				<h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|sanitize}}</a></h2>			</div>			<div class='article-content-main panel-body' data-loaded='false'>							</div>			<div class='article-content-footer panel-footer'>				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>			</div>		</div>	</li>	{{/articles}}",
+    'modal': "		<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'>			<div class='modal-dialog'>				<div class='modal-content'>					<div class='modal-header'>						<button type='button' class='close' data-dismiss='modal'>&times;</button>						<h4 class='modal-title' id='modal_label'>{{title|sanitize}}</h4>					</div>					<div class='modal-body'></div>					<div class='modal-footer'>						<button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button>					</div>				</div>			</div>		</div>",
     'add_feed_form': "		<div class='alert alert-danger hidden'></div>		<form class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-2 control-label' for='id_url'>Feed URL</label>				<div class='col-md-12'>					<input class='form-control' id='id_url' name='url' type='url'>				</div>			</div>		</form>",
-    'edit_feed_form': "		<div class='alert alert-danger hidden'></div>		<form id='modal-form' class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_title'>Feed Title</label>				<div class='col-md-11'>					<input class='form-control' id='id_title' name='title' value='{{title}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_site_url'>Site URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url}}'>				</div>			</div>		</form>		<div>		Last fetched:{{last_fetched|datetime}}<br>		Next fetch:{{next_fetch|datetime}}		</div>	"
+    'edit_feed_form': "		<div class='alert alert-danger hidden'></div>		<form id='modal-form' class='form-horizontal' role='form'>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_title'>Feed Title</label>				<div class='col-md-11'>					<input class='form-control' id='id_title' name='title' value='{{title|sanitize}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url|sanitize}}'>				</div>			</div>			<div class='form-group'>				<label class='col-md-3 control-label' for='id_site_url'>Site URL</label>				<div class='col-md-11'>					<input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url|sanitize}}'>				</div>			</div>		</form>		<div>		Last fetched:{{last_fetched|datetime}}<br>		Next fetch:{{next_fetch|datetime}}		</div>	"
   };
 
   $(document).ready(function() {

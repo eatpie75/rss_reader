@@ -22,12 +22,13 @@ def update_feeds():
 		f+=1
 		if f>20:
 			break
-	print('{} new article(s)'.format(i))
+	if i>0:
+		print('{} new article(s)'.format(i))
 	db.close_connection()
 	return None
 
 
 if __name__=='__main__':
 	sched=Scheduler(standalone=True)
-	sched.add_interval_job(update_feeds, minutes=5)
+	sched.add_interval_job(update_feeds, minutes=1)
 	sched.start()
