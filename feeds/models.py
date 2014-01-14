@@ -136,7 +136,7 @@ class Feed(models.Model):
 			return 0
 
 		i=0
-		logger.info("Updating {}:".format(self.title)),
+		logger.info("Updating {}".format(self.title))
 
 		if feed is None:
 			tmp=self.get_feed()

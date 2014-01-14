@@ -342,12 +342,14 @@ class FeedManager
 
 Mark.pipes.datetime=(date)->
 	new Date(+date || date).toLocaleString()
-Mark.pipes.sanitize=(str)->
-	input="[<>&\"'\/]"
+Mark.pipes.sanitize=(str, escape_only=false)->
+	input=if not escape_only then "[<>&\"'\/]" else "[<>]"
 	output=["&lt;", "&gt;", "&amp;", "&quot;", "&#39;", "&#x2F;"]
 	str.replace(new RegExp(input, "g"), (s)->
 		output[input.indexOf(s)-1]
 	)
+Mark.pipes.escape=(str)->
+	Mark.pipes.sanitize(str, true)
 
 window.templates={
 	'feed_list':"
@@ -356,7 +358,7 @@ window.templates={
 		</li>
 		{{feed_list}}
 		<li class='feed-row{{if not success}} error{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' data-name='{{title|sanitize}}'{{if not success}} title='{{last_error|sanitize}}'{{/if}}>
-			<span>{{title|sanitize}}</span> <small>({{unread}})</small>
+			<span>{{title|escape}}</span> <small>({{unread}})</small>
 			<div class='marker glyphicon glyphicon-wrench'></div>
 		</li>
 		{{/feed_list}}",
@@ -365,13 +367,13 @@ window.templates={
 	data-id='{{article.pk}}'>
 		<div class='article-row-title'>
 			<img class='feed-icon' src='{{feed.image}}'>
-			<div class='article-feed-name'>{{feed.title|sanitize}}</div>
-			<div class='article-title'>{{article.title|sanitize}}</div>
+			<div class='article-feed-name'>{{feed.title|escape}}</div>
+			<div class='article-title'>{{article.title|escape}}</div>
 			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>
 		</div>
 		<div class='article-content panel panel-default'>
 			<div class='article-content-title panel-heading'>
-				<h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|sanitize}}</a></h2>
+				<h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2>
 			</div>
 			<div class='article-content-main panel-body' data-loaded='false'>
 				
@@ -388,7 +390,7 @@ window.templates={
 				<div class='modal-content'>
 					<div class='modal-header'>
 						<button type='button' class='close' data-dismiss='modal'>&times;</button>
-						<h4 class='modal-title' id='modal_label'>{{title|sanitize}}</h4>
+						<h4 class='modal-title' id='modal_label'>{{title|escape}}</h4>
 					</div>
 					<div class='modal-body'></div>
 					<div class='modal-footer'>
