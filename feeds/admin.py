@@ -6,7 +6,7 @@ from pytz import timezone
 
 class FeedAdmin(admin.ModelAdmin):
 	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
-	actions=['force_update', 'update_favicon']
+	actions=['force_update', 'update_favicon', 'update_statistics']
 
 	def force_update(self, request, qs):
 		num_feeds=len(qs)
@@ -26,6 +26,14 @@ class FeedAdmin(admin.ModelAdmin):
 				i+=1
 		self.message_user(request, '{} favicon(s) were updated'.format(i))
 	update_favicon.short_description='Update favicons'
+
+	def update_statistics(self, request, qs):
+		i=0
+		for feed in qs:
+			feed.update_statistics()
+			i+=1
+		self.message_user(request, '{} feed(s) statistics were updated'.format(i))
+	update_statistics.short_description='Update statistics'
 
 	def show_favicon(self, obj):
 		tmp=obj.get_feed_image
