@@ -2,6 +2,7 @@ import json
 import utils as feed_utils
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import render_to_response
@@ -14,13 +15,6 @@ import logging
 logger=logging.getLogger(__name__)
 
 
-class DateEncoder(json.JSONEncoder):
-	def default(self, obj):
-		if isinstance(obj, datetime):
-			return obj.isoformat()
-		return json.JSONEncoder.default(self, obj)
-
-
 @login_required
 def feed_info(request, feed):
 	feed=int(feed)
@@ -28,7 +22,7 @@ def feed_info(request, feed):
 	user_feed=UserFeedSubscription.objects.get(user=request.user, feed=feed)
 	data=feed.get_all_info()
 	data.update({'title':user_feed.title})
-	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
 
 
 @login_required
@@ -76,7 +70,7 @@ def mark_unread(request, article):
 	else:
 		data=[]
 	return HttpResponse(json.dumps(data), content_type='application/json')
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)})
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -101,8 +95,8 @@ def refresh_feed(request, feed):
 @login_required
 def view_article(request, article):
 	article=UserArticleInfo.objects.filter(user=request.user, article=article).select_related('article__content')
-	return HttpResponse(json.dumps(article.values('article__content')[0], cls=DateEncoder), content_type='application/json')
-	# return render_to_response('blank.html.j2', {'a':json.dumps(article.values('article__content')[0], cls=DateEncoder)})
+	return HttpResponse(json.dumps(article.values('article__content')[0], cls=DjangoJSONEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(article.values('article__content')[0], cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -123,8 +117,8 @@ def view_feed_list(request):
 			'unread':individual_unread_count[user_feed.feed.id]
 		})
 	data['feed_list']=feed_list
-	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)})
+	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -160,8 +154,8 @@ def view_feed_articles(request, feed):
 	for user_article in articles[:limit]:
 		tmp.append(user_article.get_basic_info())
 	data['articles']=tmp
-	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DateEncoder)})
+	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -177,13 +171,14 @@ def add_feed(request):
 				if type(feed[1])!=int:
 					feed=Feed(feed_url=form.cleaned_data['url'])
 					feed.save()
+					logger.info('Created new feed: {}'.format(feed.feed_url))
 				elif type(feed[1])==int:
 					feed=Feed.objects.get(pk=feed[1])
 					if feed.enabled is False:
 						feed.enabled=True
 					if feed.needs_update:
 						feed.update()
-				UserFeedSubscription(user=request.user, feed=feed).save()
+				UserFeedSubscription(user=request.user, feed=feed, title=feed.title).save()
 				tmp=[]
 				for article in Article.objects.filter(feed=feed.pk).only('pk')[:25]:
 					tmp.append(UserArticleInfo(user=request.user, feed=feed, article=article))
@@ -196,13 +191,13 @@ def add_feed(request):
 			data={'error':'Input a valid url.'}
 	else:
 		data={'error':''}
-	return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
 
 
 @login_required
 def edit_feed(request, feed):
 	def finish(data):
-		return HttpResponse(json.dumps(data, cls=DateEncoder), content_type='application/json')
+		return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
 	feed=int(feed)
 	if request.method=='POST':
 		form=EditFeedForm(request.POST)

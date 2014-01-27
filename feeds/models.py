@@ -23,9 +23,9 @@ logger=logging.getLogger(__name__)
 
 class Feed(models.Model):
 	id=models.AutoField(primary_key=True, db_index=True)
-	title=models.CharField(max_length=200, blank=True)
-	feed_url=models.URLField()
-	site_url=models.URLField(blank=True, null=True)
+	title=models.TextField(blank=True)
+	feed_url=models.URLField(max_length=500)
+	site_url=models.URLField(max_length=500, blank=True, null=True)
 	feed_image=models.ImageField(upload_to='feeds', blank=True, null=True)
 	date_added=models.DateTimeField(blank=True, null=True)
 	last_fetched=models.DateTimeField(blank=True, null=True)
@@ -51,13 +51,14 @@ class Feed(models.Model):
 			return False
 
 		logging.info("Initializing {}".format(self.feed_url))
-		self.title=feed.feed.title
+		self.title=feed.feed.title[:500]
 		if 'link' in feed.feed:
 			self.site_url=feed.feed.link
 		now=timezone('utc').localize(datetime.utcnow())
 		self.date_added=now
 		self.last_updated=now
 		self.save()
+		self.update_statistics()
 		self.update(feed)
 		self.get_favicon(feed)
 		self.update_statistics()
@@ -315,8 +316,8 @@ class Feed(models.Model):
 class Article(models.Model):
 	id=models.AutoField(primary_key=True, db_index=True)
 	feed=models.ForeignKey(Feed)
-	guid=models.CharField(db_index=True, max_length=200)
-	title=models.CharField(max_length=500)
+	guid=models.TextField(db_index=True)
+	title=models.TextField()
 	author=models.CharField(max_length=250, blank=True)
 	date_added=models.DateTimeField()
 	date_published=models.DateTimeField()
@@ -324,7 +325,7 @@ class Article(models.Model):
 	date_last_seen=models.DateTimeField()
 	description=models.TextField(blank=True)
 	content=models.TextField(blank=True)
-	url=models.URLField()
+	url=models.URLField(max_length=500)
 
 	def create_user_info(self):
 		tmp=[]
@@ -354,7 +355,7 @@ class Article(models.Model):
 class UserFeedSubscription(models.Model):
 	user=models.ForeignKey(User, db_index=True)
 	feed=models.ForeignKey(Feed, db_index=True)
-	title=models.CharField(max_length=200, blank=True)
+	title=models.TextField(blank=True)
 	date_added=models.DateTimeField(auto_now_add=True)
 
 	@property

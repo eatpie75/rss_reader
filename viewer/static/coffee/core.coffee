@@ -82,7 +82,7 @@ class FeedManager
 				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data.articles}))
 				@bind()
 				if data.length<15
-					console.log 'no more'
+					# console.log 'no more'
 					@more_articles_to_load=false
 				@update_unread(data.unread, feed)
 				@busy=false

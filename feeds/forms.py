@@ -6,6 +6,6 @@ class AddFeedForm(forms.Form):
 
 
 class EditFeedForm(forms.Form):
-	title=forms.CharField(max_length=200)
+	title=forms.CharField(max_length=500)
 	feed_url=forms.URLField()
 	site_url=forms.URLField()

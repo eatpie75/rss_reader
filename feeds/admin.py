@@ -7,6 +7,7 @@ from pytz import timezone
 class FeedAdmin(admin.ModelAdmin):
 	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
 	actions=['force_update', 'update_favicon', 'update_statistics']
+	exclude=('statistics',)
 
 	def force_update(self, request, qs):
 		num_feeds=len(qs)
@@ -45,7 +46,10 @@ class FeedAdmin(admin.ModelAdmin):
 	show_favicon.short_description='Favicon'
 
 	def time_til_fetch(self, obj):
-		return obj.next_fetch - timezone('utc').localize(datetime.utcnow())
+		if obj.next_fetch is not None:
+			return obj.next_fetch - timezone('utc').localize(datetime.utcnow())
+		else:
+			return datetime(1992, 4, 26)
 	time_til_fetch.short_description='Time til next fetch'
 
 
