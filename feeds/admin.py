@@ -1,5 +1,4 @@
 from datetime import datetime
-from django import forms
 from django.contrib import admin
 from models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
 from pytz import timezone
@@ -9,9 +8,6 @@ class FeedAdmin(admin.ModelAdmin):
 	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
 	actions=['force_update', 'update_favicon', 'update_statistics']
 	exclude=('statistics',)
-	formfield_overrides={
-		Feed.title:forms.CharField,
-	}
 
 	def force_update(self, request, qs):
 		num_feeds=len(qs)
@@ -60,10 +56,6 @@ class FeedAdmin(admin.ModelAdmin):
 class ArticleAdmin(admin.ModelAdmin):
 	list_display=('feed', 'date_published', 'title')
 	list_filter=('feed',)
-	formfield_overrides={
-		Article.title:forms.CharField,
-		Article.guid:forms.CharField,
-	}
 
 
 class CategoryAdmin(admin.ModelAdmin):
@@ -73,9 +65,6 @@ class CategoryAdmin(admin.ModelAdmin):
 class UserFeedSubscriptionAdmin(admin.ModelAdmin):
 	list_display=('user', 'feed')
 	list_filter=('user',)
-	formfield_overrides={
-		UserFeedSubscription.title:forms.CharField,
-	}
 
 
 class UserArticleInfoAdmin(admin.ModelAdmin):
