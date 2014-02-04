@@ -128,7 +128,6 @@
           }));
           _this.bind();
           if (data.length < 15) {
-            console.log('no more');
             _this.more_articles_to_load = false;
           }
           _this.update_unread(data.unread, feed);
@@ -524,12 +523,7 @@
   };
 
   Mark.pipes.escape = function(str) {
-    var input, output;
-    input = "[<>]";
-    output = ["&lt;", "&gt;"];
-    return str.replace(new RegExp(input, "g"), function(s) {
-      return output[input.indexOf(s) - 1];
-    });
+    return Mark.pipes.sanitize(str, true);
   };
 
   window.templates = {

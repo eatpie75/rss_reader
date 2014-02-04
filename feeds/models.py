@@ -100,7 +100,7 @@ class Feed(models.Model):
 			logger.info('got icon from rss: {}'.format(url))
 		else:
 			tmp=requests.get(self.site_url)
-			if tmp.status_code in (404, 410, 500, 502):
+			if 400<=tmp.status_code<=510:
 				logger.error('site status code: {}'.format(tmp.status_code))
 				return None
 			tmp=BeautifulSoup(tmp.text)
@@ -110,9 +110,9 @@ class Feed(models.Model):
 				logger.info('got icon from html: {}'.format(url))
 			else:
 				url=urljoin(self.site_url, '/favicon.ico')
-				logger.info('got icon from favicon.ico: {}'.format(url))
+				logger.info('attempting to get icon from favicon.ico: {}'.format(url))
 		icon=requests.get(url)
-		if icon.status_code in (404, 410, 500, 502):
+		if 400<=icon.status_code<=510:
 			logger.error('got status: {} on {}'.format(icon.status_code, url))
 			return None
 		icon=File(BytesIO(icon.content))
