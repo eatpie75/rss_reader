@@ -51,7 +51,7 @@ class FeedManager
 			tmp=$('li.article-row.active').clone()
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
-			data:'all' if not @filter_read
+			data:'read' if not @filter_read
 			dataType:'json'
 			success:(data)=>
 				@reset_last_article()
@@ -75,7 +75,7 @@ class FeedManager
 		@busy=true
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
-			data:{'limit':15, 'all':!@filter_read, 'last_article':@last_article}
+			data:{'limit':15, 'read':!@filter_read, 'last_article':@last_article}
 			dataType:'json'
 			success:(data)=>
 				@update_last_article(data.articles)
@@ -366,7 +366,7 @@ window.templates={
 	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}'
 	data-id='{{article.pk}}'>
 		<div class='article-row-title'>
-			<img class='feed-icon' src='{{feed.image}}'>
+			<img class='feed-icon' src='{{feed.image}}' title='{{feed.title|escape}}'>
 			<div class='article-feed-name'>{{feed.title|escape}}</div>
 			<div class='article-title'>{{article.title|escape}}</div>
 			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>
