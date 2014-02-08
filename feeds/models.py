@@ -201,6 +201,8 @@ class Feed(models.Model):
 			recalulate_feed_cache(self.pk)
 		self.save()
 
+		if self.needs_statistics_update:
+			self.update_statistics()
 		# self.purge()
 		return i
 
@@ -305,6 +307,10 @@ class Feed(models.Model):
 	@property
 	def needs_update(self):
 		return self.next_fetch<timezone('utc').localize(datetime.utcnow())
+
+	@property
+	def needs_statistics_update(self):
+		return self.statistics_updated + timedelta(days=7)<timezone('utc').localize(datetime.utcnow())
 
 	def __unicode__(self):
 		return unicode(self.title)
