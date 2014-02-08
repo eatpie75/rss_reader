@@ -130,12 +130,12 @@ def view_feed_articles(request, feed):
 		feed=Feed.objects.get(pk=feed)
 		articles=UserArticleInfo.objects.filter(user=request.user, feed=feed)
 		data['unread']=UserFeedCache.objects.filter(user=request.user, feed=feed).only('unread')[0].unread
-		if request.GET.get('read', False):
+		if not request.GET.get('read', False):
 			articles=articles.filter(read=False)
 	else:
 		articles=UserArticleInfo.objects.filter(user=request.user)
 		data['unread']=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
-		if request.GET.get('read', False):
+		if not request.GET.get('read', False):
 			articles=articles.filter(read=False)
 
 	if 'last_article' in request.GET:
