@@ -208,6 +208,7 @@ class Feed(models.Model):
 		self.save()
 
 		if self.needs_statistics_update:
+			logger.info('Updating statistics')
 			self.update_statistics()
 		# self.purge()
 		return i
