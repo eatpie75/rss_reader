@@ -181,14 +181,20 @@ class Feed(models.Model):
 				date_last_seen=timezone('utc').localize(now)
 			)
 			if 'content' in entry:
-				article.content=unicode(BeautifulSoup(entry.content[0]['value'], 'html.parser'))
-				article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
+				content=unicode(entry.content[0]['value'])
+				description=unicode(entry.description[:500])
 			elif 'description' in entry:
-				article.content=unicode(BeautifulSoup(entry.description, 'html.parser'))
-				article.description=unicode(BeautifulSoup(entry.description[:500], 'html.parser'))
+				content=unicode(entry.description)
+				description=unicode(entry.description[:500])
 			else:
-				article.content=entry.title
-				article.description=entry.title[:500]
+				content=unicode(entry.title)
+				description=unicode(entry.title[:500])
+			content=BeautifulSoup(content, 'html.parser')
+			description=BeautifulSoup(description, 'html.parser')
+			for tracking_img in content.find_all('img', height=1, width=1):
+				tracking_img.decompose()
+			article.content=unicode(content)
+			article.description=unicode(description)
 			article.save()
 			article.create_user_info()
 		logger.info('Added {} new article(s)'.format(i))
