@@ -35,6 +35,9 @@ html, body, body>div.container {
 .feed-list {
 	& > ul {
 		& > li {
+			&.update {
+				.animation(3s linear 0s alternate none infinite pulse)
+			}
 			& > div.marker {
 				display:none;
 			}
@@ -84,7 +87,10 @@ html, body, body>div.container {
 	overflow:hidden;
 	padding-right:0px;
 }
-
+@keyframes pulse {
+	from {color:@gray-dark;}
+	to {color:@brand-danger;}
+}
 .article-list {
 	& > ul {
 		& > li {

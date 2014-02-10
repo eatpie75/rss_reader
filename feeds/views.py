@@ -26,6 +26,23 @@ def feed_info(request, feed):
 
 
 @login_required
+def new_articles(request, feed):
+	feed=int(feed)
+	newest_article=datetime.strptime(request.GET['newest_article'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone('utc'), microsecond=999999)
+	# print(newest_article, UserArticleInfo.objects.filter(user=request.user, read=False).latest('article__date_added').article.date_added)
+	data={}
+
+	if feed!=0:
+		feed=Feed.objects.get(pk=feed)
+		data['new_articles']=UserArticleInfo.objects.filter(user=request.user, feed=feed, read=False, article__date_added__gt=newest_article).exists()
+	else:
+		data['new_articles']=UserArticleInfo.objects.filter(user=request.user, read=False, article__date_added__gt=newest_article).exists()
+
+	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
+
+
+@login_required
 def mark_all_read(request, feed):
 	feed=int(feed)
 	if feed!=0:

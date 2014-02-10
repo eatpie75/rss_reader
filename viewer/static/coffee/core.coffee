@@ -2,10 +2,15 @@ class FeedManager
 	constructor:()->
 		@current_feed=-1
 		@filter_read=true
+
 		@last_article=Infinity
 		@last_article_visible=false
 		@more_articles_to_load=true
 		@busy=false
+
+		@newest_article=new Date(0)
+		@new_articles_available=false
+
 		@refresh_feed_list(()=>
 			@get_current_feed()
 			@set_current_feed()
@@ -18,15 +23,24 @@ class FeedManager
 			time=new Date(article.article.date_published)
 			time=time.getTime()
 			if time<@last_article
-				@last_article=time			
+				@last_article=time
 		@last_article
 	reset_last_article:()->
 		@last_article=Infinity
+	update_newest_article:(data)->
+		for article in data
+			time=new Date(article.article.date_added)
+			if time>@newest_article
+				@newest_article=time
+		@newest_article
+	reset_newest_article:()->
+		@newest_article=new Date(0)
 	update_title:()->
 		feed=@get_current_feed()
 		el=$("#feed-#{feed}")
 		unread=el.children('small').text()
-		document.title="#{unread} #{el.data('name')}"
+		mod=if @new_articles_available then '!' else ''
+		document.title="#{unread}#{mod} #{el.data('name')}"
 	get_current_feed:()->
 		hash=Number(window.location.hash.slice(1))
 		if hash!=@current_feed
@@ -55,7 +69,9 @@ class FeedManager
 			dataType:'json'
 			success:(data)=>
 				@reset_last_article()
+				@reset_newest_article()
 				@update_last_article(data.articles)
+				@update_newest_article(data.articles)
 				@current_feed=feed
 				@set_current_feed()
 				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
@@ -339,6 +355,7 @@ class FeedManager
 				else
 					_this.last_article_visible=false
 			)
+			setTimeout(check_for_new_articles, 30000)
 
 Mark.pipes.datetime=(date)->
 	new Date(+date || date).toLocaleString()
@@ -437,6 +454,24 @@ window.templates={
 		</div>
 	"
 }
+
+check_for_new_articles=()->
+	feed=window.feeds.get_current_feed()
+	$.ajax({
+		url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/new"
+		data:{'newest_article':window.feeds.newest_article.toISOString()}
+		dataType:'json'
+		success:(data)=>
+			if data.new_articles
+				window.feeds.new_articles_available=true
+				$("#feed-#{feed}").addClass('update')
+			else
+				window.feeds.new_articles_available=false
+				$("#feed-#{feed}").removeClass('update')
+			window.feeds.update_title()
+			setTimeout(check_for_new_articles, 30000)
+	})
+
 
 $(document).ready(->
 	window.feeds=new FeedManager()
