@@ -13,7 +13,9 @@ html, body, body>div.container {
 	overflow:hidden;
 }
 
-.row {padding:0;}
+.row {
+	padding:0;
+}
 
 
 // .container {position:relative;}
@@ -78,9 +80,6 @@ html, body, body>div.container {
 		margin-top:25px;
 		overflow:auto;
 	}
-	// & > hr {
-	// 	margin:2px 0 2px 25px;
-	// }
 	border-right:1px solid fade(gray, 25%);
 	font-size:10px;
 	margin-left:0px;
@@ -156,6 +155,9 @@ html, body, body>div.container {
 						// margin-bottom:15px;
 					}
 					& > div.article-content-main {
+						& img {
+							max-width:100%
+						}
 						overflow-x:auto;
 					}
 					& > div.article-content-footer {

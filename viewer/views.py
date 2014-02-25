@@ -2,13 +2,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import render_to_response
 from django.template import RequestContext
-from feeds.models import UserFeedSubscription, UserArticleInfo, UserFeedCache
+from feeds.models import UserFeedSubscription, UserFeedCache
 
 
 @login_required
 def index(request):
 	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed')
-	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
+	total_unread_count=max(UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum'], 0)
 	individual_unread_count={}
 	for a in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
 		individual_unread_count[a.feed_id]=a.unread

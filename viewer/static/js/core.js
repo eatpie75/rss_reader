@@ -288,12 +288,10 @@
           $.ajax({
             url: "" + window.AJAX_BASE + "feeds/article/" + (row.data('id')) + "/",
             dataType: 'json',
-            success: (function(_this) {
-              return function(data) {
-                main_content.html(data.article__content);
-                return main_content.data('loaded', true);
-              };
-            })(this)
+            success: function(data) {
+              main_content.html(data.article__content);
+              return main_content.data('loaded', true);
+            }
           });
         }
         if (!row.hasClass('read')) {
@@ -578,19 +576,17 @@
         'newest_article': window.feeds.newest_article.toISOString()
       },
       dataType: 'json',
-      success: (function(_this) {
-        return function(data) {
-          if (data.new_articles) {
-            window.feeds.new_articles_available = true;
-            $("#feed-" + feed).addClass('update');
-          } else {
-            window.feeds.new_articles_available = false;
-            $("#feed-" + feed).removeClass('update');
-          }
-          window.feeds.update_title();
-          return setTimeout(check_for_new_articles, 30000);
-        };
-      })(this)
+      success: function(data) {
+        if (data.new_articles) {
+          window.feeds.new_articles_available = true;
+          $("#feed-" + feed).addClass('update');
+        } else {
+          window.feeds.new_articles_available = false;
+          $("#feed-" + feed).removeClass('update');
+        }
+        window.feeds.update_title();
+        return setTimeout(check_for_new_articles, 30000);
+      }
     });
   };
 

@@ -53,7 +53,7 @@ def mark_all_read(request, feed):
 	else:
 		UserArticleInfo.objects.filter(user=request.user, read=False).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
 		unread_count=recalculate_user_cache(request.user.pk)
-		data=[{'feed':0, 'unread':unread_count}]
+		data=[{'feed':0, 'unread':max(unread_count, 0)}]
 	return HttpResponse(json.dumps(data), content_type='application/json')
 
 
@@ -123,7 +123,7 @@ def view_feed_list(request):
 	individual_unread_count={}
 	for a in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
 		individual_unread_count[a.feed_id]=a.unread
-	data={'total_unread_count':total_unread_count}
+	data={'total_unread_count':max(total_unread_count, 0)}
 	feed_list=[]
 	for user_feed in user_feeds:
 		feed_list.append({
@@ -171,6 +171,7 @@ def view_feed_articles(request, feed):
 	for user_article in articles[:limit]:
 		tmp.append(user_article.get_basic_info())
 	data['articles']=tmp
+	data['unread']=max(data['unread'], 0)
 	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 

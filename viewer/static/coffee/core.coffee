@@ -185,7 +185,7 @@ class FeedManager
 					url:"#{window.AJAX_BASE}feeds/article/#{row.data('id')}/"
 					dataType:'json'
 					# async:false
-					success:(data)=>
+					success:(data)->
 						main_content.html(data.article__content)
 						main_content.data('loaded', true)
 				})
@@ -461,7 +461,7 @@ check_for_new_articles=()->
 		url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/new"
 		data:{'newest_article':window.feeds.newest_article.toISOString()}
 		dataType:'json'
-		success:(data)=>
+		success:(data)->
 			if data.new_articles
 				window.feeds.new_articles_available=true
 				$("#feed-#{feed}").addClass('update')
