@@ -181,6 +181,7 @@ class FeedManager
 			child.css('display', 'inline-block')
 			row.addClass('active')
 			if not main_content.data('loaded')
+				main_content.html(window.templates.loading_bar)
 				$.ajax({
 					url:"#{window.AJAX_BASE}feeds/article/#{row.data('id')}/"
 					dataType:'json'
@@ -250,7 +251,7 @@ class FeedManager
 			if $('#modal').data('for')!='edit'
 				$('#modal').remove()
 			$('body').append(Mark.up(window.templates.modal, {'for':'edit', 'title':'Edit Feed', 'modal_submit_text':'Edit Feed'}))
-			$('#modal .modal-body').html("<div class='progress progress-striped active'><div class='progress-bar' role='progressbar' style='width: 100%'></div></div>")
+			$('#modal .modal-body').html(window.templates.loading_bar)
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/info"
 			dataType:'json'
@@ -369,6 +370,7 @@ Mark.pipes.escape=(str)->
 	Mark.pipes.sanitize(str, true)
 
 window.templates={
+	'loading_bar':"<div class='progress progress-striped active'><div class='progress-bar' role='progressbar' style='width: 100%'></div></div>",
 	'feed_list':"
 		<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>
 			Unread Items <small>({{total_unread_count}})</small>
