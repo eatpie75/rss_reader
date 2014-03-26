@@ -351,7 +351,7 @@ class Article(models.Model):
 	@property
 	def date_published_relative(self):
 		now=datetime.now(timezone('UTC'))
-		if now.day==self.date_published.day:
+		if now.date()==self.date_published.date():
 			# return self.date_published.strftime('%I:%M %p')
 			return self.date_published.astimezone(timezone('America/Los_Angeles')).strftime('%I:%M %p')
 		else:
@@ -387,7 +387,9 @@ class UserArticleInfo(models.Model):
 	read=models.BooleanField(db_index=True, default=False)
 	date_read=models.DateTimeField(blank=True, null=True)
 
-	def get_basic_info(self):
+	def get_basic_info(self, feed_title=None):
+		if feed_title is None:
+			feed_title=self.feed.title
 		return {
 			'pk':self.pk,
 			'user':self.user.pk,

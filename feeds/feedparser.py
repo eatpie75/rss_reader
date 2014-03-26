@@ -2459,7 +2459,7 @@ class _HTMLSanitizer(_BaseHTMLProcessor):
 		'y2', 'zoomAndPan'
 	])
 
-	youtube_attributes = set(['autohide', 'autoplay', 'hd', 'height', 'iv_load_policy','modestbranding', 'rel', 'showsearch', 'src', 'start', 'width', 'wmode'])
+	video_attributes = set(['autohide', 'autoplay', 'hd', 'height', 'iv_load_policy','modestbranding', 'rel', 'showsearch', 'src', 'start', 'width', 'wmode'])
 
 	svg_attr_map = None
 	svg_elem_map = None
@@ -2475,7 +2475,7 @@ class _HTMLSanitizer(_BaseHTMLProcessor):
 		self.unacceptablestack = 0
 		self.mathmlOK = 0
 		self.svgOK = 0
-		self.youtubeOk = 0
+		self.videoOk = 0
 
 	def unknown_starttag(self, tag, attrs):
 		acceptable_attributes = self.acceptable_attributes
@@ -2530,9 +2530,13 @@ class _HTMLSanitizer(_BaseHTMLProcessor):
 					urlparts=urlparse.urlsplit(attrs[i][1])
 					query=urlparse.parse_qs(urlparts.query)
 					if urlparts.netloc.endswith('youtube.com') and urlparts.path.startswith('/embed/'):
-						self.youtubeOk+=1
-						acceptable_attributes=self.youtube_attributes
+						self.videoOk+=1
+						acceptable_attributes=self.video_attributes
 						query['autoplay']=0
+						attrs[i]=('src', urlparse.urlunsplit([urlparts.scheme, urlparts.netloc, urlparts.path, urllib.urlencode(query, True), urlparts.fragment]))
+					elif urlparts.netloc.endswith('tumblr.com') and urlparts.path.startswith('/video/'):
+						self.videoOk+=1
+						acceptable_attributes=self.video_attributes
 						attrs[i]=('src', urlparse.urlunsplit([urlparts.scheme, urlparts.netloc, urlparts.path, urllib.urlencode(query, True), urlparts.fragment]))
 					else:
 						return
@@ -2572,8 +2576,8 @@ class _HTMLSanitizer(_BaseHTMLProcessor):
 				tag = self.svg_elem_map.get(tag,tag)
 				if tag == 'svg' and self.svgOK:
 					self.svgOK -= 1
-			elif self.youtubeOk and tag=='iframe':
-				self.youtubeOk -= 1
+			elif self.videoOk and tag=='iframe':
+				self.videoOk -= 1
 			else:
 				return
 		_BaseHTMLProcessor.unknown_endtag(self, tag)

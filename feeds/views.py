@@ -100,9 +100,9 @@ def refresh_feed(request, feed):
 		data.append({'feed':feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=feed).unread})
 	else:
 		new_articles=0
-		for feed in Feed.objects.filter(last_updated__lt=datetime.now(timezone('utc')) - timedelta(minutes=10)):
-			new_articles+=feed.update()
-			data.append({'feed':feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=feed).unread})
+		for user_feed in UserFeedSubscription.objects.filter(user=request.user, feed__last_updated__lt=datetime.now(timezone('utc')) - timedelta(minutes=10)):
+			new_articles+=user_feed.feed.update()
+			data.append({'feed':user_feed.feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=user_feed.feed).unread})
 		logger.info('{} new article(s)'.format(new_articles))
 	unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 	data.append({'feed':0, 'unread':unread_count})
