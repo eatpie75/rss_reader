@@ -68,9 +68,13 @@ class UserFeedSubscriptionAdmin(admin.ModelAdmin):
 
 
 class UserArticleInfoAdmin(admin.ModelAdmin):
-	list_display=('user', 'feed', 'article', 'read')
+	list_display=('user', 'feed', 'article_trunc', 'read', 'date_read')
 	list_filter=('user', 'feed', 'read')
 	actions=['mark_read',]
+
+	def article_trunc(self, obj):
+		return obj.article.__unicode__()[:200]
+	article_trunc.short_description='Article'
 
 	def mark_read(self, request, qs):
 		num_articles=len(qs)
