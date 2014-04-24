@@ -8,6 +8,7 @@ class FeedAdmin(admin.ModelAdmin):
 	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
 	actions=['force_update', 'update_favicon', 'update_statistics']
 	exclude=('statistics',)
+	readonly_fields=('last_updated', 'last_error', 'statistics_updated')
 
 	def force_update(self, request, qs):
 		num_feeds=len(qs)
@@ -65,11 +66,13 @@ class CategoryAdmin(admin.ModelAdmin):
 class UserFeedSubscriptionAdmin(admin.ModelAdmin):
 	list_display=('user', 'feed')
 	list_filter=('user',)
+	readonly_fields=('user',)
 
 
 class UserArticleInfoAdmin(admin.ModelAdmin):
 	list_display=('user', 'feed', 'article_trunc', 'read', 'date_read')
 	list_filter=('user', 'feed', 'read')
+	readonly_fields=('user', 'feed', 'article')
 	actions=['mark_read',]
 
 	def article_trunc(self, obj):
@@ -89,6 +92,7 @@ class UserArticleInfoAdmin(admin.ModelAdmin):
 
 class UserFeedCacheAdmin(admin.ModelAdmin):
 	list_display=('user', 'feed', 'unread')
+	readonly_fields=('user',)
 	actions=['recalculate',]
 
 	def recalculate(self, request, qs):

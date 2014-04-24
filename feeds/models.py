@@ -30,7 +30,7 @@ class Feed(models.Model):
 	date_added=models.DateTimeField(blank=True, null=True)
 	last_fetched=models.DateTimeField(blank=True, null=True)
 	last_updated=models.DateTimeField(blank=True, null=True)
-	update_interval=models.IntegerField(default=300)
+	update_interval=models.IntegerField(default=300, help_text='Base time between updates in minutes')
 	next_fetch=models.DateTimeField(blank=True, null=True)
 	purge_interval=models.IntegerField(default=0)
 	category=models.ForeignKey('Category', blank=True, null=True)
@@ -395,7 +395,7 @@ class UserArticleInfo(models.Model):
 			'user':self.user.pk,
 			'feed':{
 				'pk':self.feed.pk,
-				'title':self.feed.title,
+				'title':feed_title,
 				'image':self.feed.get_feed_image if self.feed.get_feed_image is not None else settings.STATIC_URL + 'img/rss.png'
 			},
 			'article':{

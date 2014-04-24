@@ -149,11 +149,13 @@ def view_feed_articles(request, feed):
 		data['unread']=UserFeedCache.objects.filter(user=request.user, feed=feed).only('unread')[0].unread
 		if request.GET.get('read', 'false')=='false':
 			articles=articles.filter(read=False)
+		feed_title=UserFeedSubscription.objects.get(user=request.user, feed=feed).title
 	else:
 		articles=UserArticleInfo.objects.filter(user=request.user)
 		data['unread']=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
 		if request.GET.get('read', 'false')=='false':
 			articles=articles.filter(read=False)
+		feed_title=None
 
 	if 'last_article' in request.GET:
 		last_article=float(request.GET['last_article']) / 1000.0
@@ -169,7 +171,7 @@ def view_feed_articles(request, feed):
 
 	tmp=[]
 	for user_article in articles[:limit]:
-		tmp.append(user_article.get_basic_info())
+		tmp.append(user_article.get_basic_info(feed_title))
 	data['articles']=tmp
 	data['unread']=max(data['unread'], 0)
 	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
