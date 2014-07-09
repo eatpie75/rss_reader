@@ -1,39 +1,22 @@
 # -*- coding: utf-8 -*-
 from south.utils import datetime_utils as datetime
 from south.db import db
-from south.v2 import SchemaMigration
+from south.v2 import DataMigration
 from django.db import models
 
-
-class Migration(SchemaMigration):
+class Migration(DataMigration):
 
     def forwards(self, orm):
-        # Deleting field 'UserArticleInfo.old_feed'
-        db.delete_column(u'feeds_userarticleinfo', 'old_feed_id')
-
-
-        # Changing field 'UserFeedCache.feed'
-        db.alter_column(u'feeds_userfeedcache', 'feed_id', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['feeds.UserFeedSubscription']))
-
-        # for cache in UserFeedCache.objects.all():
-        #     old_feed=Feed.objects.get(pk=cache.feed_id)
-        #     new_feed=UserFeedSubscription.objects.get(feed=old_feed, user=cache.user)
-        #     cache.feed=new_feed
-        #     cache.save()
+        "Write your forwards methods here."
+        for cache in orm.UserFeedCache.objects.all():
+            old_feed=orm.Feed.objects.get(pk=cache.old_feed_id)
+            new_feed=orm.UserFeedSubscription.objects.get(feed=old_feed, user=cache.user)
+            cache.feed=new_feed
+            cache.save()
 
     def backwards(self, orm):
-
-        # User chose to not deal with backwards NULL issues for 'UserArticleInfo.old_feed'
-        raise RuntimeError("Cannot reverse this migration. 'UserArticleInfo.old_feed' and its values cannot be restored.")
-        
-        # The following code is provided here to aid in writing a correct migration        # Adding field 'UserArticleInfo.old_feed'
-        db.add_column(u'feeds_userarticleinfo', 'old_feed',
-                      self.gf('django.db.models.fields.related.ForeignKey')(to=orm['feeds.Feed']),
-                      keep_default=False)
-
-
-        # Changing field 'UserFeedCache.feed'
-        db.alter_column(u'feeds_userfeedcache', 'feed_id', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['feeds.Feed']))
+        "Write your backwards methods here."
+        raise RuntimeError("Cannot reverse this migration.")
 
     models = {
         u'auth.group': {
@@ -125,6 +108,7 @@ class Migration(SchemaMigration):
         u'feeds.userfeedcache': {
             'Meta': {'unique_together': "[['user', 'feed']]", 'object_name': 'UserFeedCache', 'index_together': "[['user', 'feed']]"},
             'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']"}),
+            'old_feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'unread': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['auth.User']"})
@@ -141,3 +125,4 @@ class Migration(SchemaMigration):
     }
 
     complete_apps = ['feeds']
+    symmetrical = True

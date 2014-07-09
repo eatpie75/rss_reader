@@ -8,16 +8,23 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding field 'UserArticleInfo.old_feed'
-        db.rename_column(u'feeds_userarticleinfo', 'feed_id', 'old_feed_id')
-        db.add_column(u'feeds_userarticleinfo', 'feed',
+        # Deleting field 'UserArticleInfo.old_feed'
+        db.delete_column(u'feeds_userarticleinfo', 'old_feed_id')
+
+        # Changing field 'UserFeedCache.feed'
+        db.rename_column(u'feeds_userfeedcache', 'feed_id', 'old_feed_id')
+        # db.alter_column(u'feeds_userfeedcache', 'feed_id', self.gf('django.db.models.fields.related.ForeignKey')(default=178, to=orm['feeds.UserFeedSubscription']))
+        db.add_column(u'feeds_userfeedcache', 'feed',
                       self.gf('django.db.models.fields.related.ForeignKey')(default=178, to=orm['feeds.UserFeedSubscription']),
                       keep_default=False)
-        db.delete_index(u'feeds_userarticleinfo', 'feed_id')
+        db.delete_index(u'feeds_userfeedcache', 'feed_id')
 
 
     def backwards(self, orm):
-        raise RuntimeError("Cannot reverse this migration.")
+
+        # User chose to not deal with backwards NULL issues for 'UserArticleInfo.old_feed'
+        raise RuntimeError("Cannot reverse this migration. 'UserArticleInfo.old_feed' and its values cannot be restored.")
+
 
     models = {
         u'auth.group': {
@@ -103,13 +110,13 @@ class Migration(SchemaMigration):
             'date_read': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']", 'null': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'old_feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
             'read': ('django.db.models.fields.BooleanField', [], {'default': 'False', 'db_index': 'True'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['auth.User']"})
         },
         u'feeds.userfeedcache': {
             'Meta': {'unique_together': "[['user', 'feed']]", 'object_name': 'UserFeedCache', 'index_together': "[['user', 'feed']]"},
-            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
+            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']"}),
+            'old_feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'unread': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['auth.User']"})

@@ -1,21 +1,25 @@
 # -*- coding: utf-8 -*-
 from south.utils import datetime_utils as datetime
 from south.db import db
-from south.v2 import SchemaMigration
+from south.v2 import DataMigration
 from django.db import models
 
-
-class Migration(SchemaMigration):
+class Migration(DataMigration):
 
     def forwards(self, orm):
-
-        # Changing field 'UserArticleInfo.feed'
-        db.alter_column(u'feeds_userarticleinfo', 'feed_id', self.gf('django.db.models.fields.related.ForeignKey')(default=1, to=orm['feeds.UserFeedSubscription']))
+        "Write your forwards methods here."
+        for article in orm.UserArticleInfo.objects.all():
+            # print(article.article)
+            old_feed=orm.Feed.objects.get(pk=article.old_feed.pk)
+            # print(old_feed)
+            new_feed=orm.UserFeedSubscription.objects.get(feed=old_feed, user=article.user)
+            # print(new_feed)
+            article.feed=new_feed
+            article.save()
 
     def backwards(self, orm):
-
-        # Changing field 'UserArticleInfo.feed'
-        db.alter_column(u'feeds_userarticleinfo', 'feed_id', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['feeds.UserFeedSubscription'], null=True))
+        "Write your backwards methods here."
+        raise RuntimeError("Cannot reverse this migration.")
 
     models = {
         u'auth.group': {
@@ -99,14 +103,15 @@ class Migration(SchemaMigration):
             'Meta': {'ordering': "['-article__date_published', '-article__date_added', '-article__id']", 'unique_together': "[['user', 'feed', 'article']]", 'object_name': 'UserArticleInfo', 'index_together': "[['user', 'feed'], ['user', 'feed', 'read']]"},
             'article': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Article']"}),
             'date_read': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']"}),
+            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']", 'null': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'old_feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
             'read': ('django.db.models.fields.BooleanField', [], {'default': 'False', 'db_index': 'True'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['auth.User']"})
         },
         u'feeds.userfeedcache': {
             'Meta': {'unique_together': "[['user', 'feed']]", 'object_name': 'UserFeedCache', 'index_together': "[['user', 'feed']]"},
-            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.UserFeedSubscription']"}),
+            'feed': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['feeds.Feed']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'unread': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
             'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['auth.User']"})
@@ -123,3 +128,4 @@ class Migration(SchemaMigration):
     }
 
     complete_apps = ['feeds']
+    symmetrical = True
