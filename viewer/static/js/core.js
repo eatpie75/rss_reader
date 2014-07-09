@@ -183,9 +183,9 @@
       }
       this.busy = true;
       if (this.current_feed_is_category) {
-        url = "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles";
-      } else {
         url = "" + window.AJAX_BASE + "feeds/category/" + feed + "/articles";
+      } else {
+        url = "" + window.AJAX_BASE + "feeds/feeds/" + feed + "/articles";
       }
       return $.ajax({
         url: url,

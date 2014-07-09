@@ -127,9 +127,9 @@ class FeedManager
 			return
 		@busy=true
 		if @current_feed_is_category
-			url="#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
-		else
 			url="#{window.AJAX_BASE}feeds/category/#{feed}/articles"
+		else
+			url="#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 		$.ajax({
 			url:url
 			data:{'limit':15, 'read':!@filter_read, 'last_article':@last_article}
