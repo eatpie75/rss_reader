@@ -40,14 +40,30 @@ html, body, body>div.container {
 			&.update {
 				.animation(3s linear 0s alternate none infinite pulse)
 			}
-			& > div.marker {
+			&.feed-row > div.marker {
 				display:none;
+			}
+			&.category-row {
+				& > div.folder {
+					padding-right:5px;
+					// padding-top:2px;
+				}
+				& > div.marker {
+					display:inline-block;
+					float:right;
+					height:100%;
+					padding-top:2px;
+					top:0px;
+				}
 			}
 			&.active {
 				background-color:paleturquoise;
 			}
+			&.indent {
+				padding-left:15px;
+			}
 			&:hover {
-				& > div.marker {
+				&.feed-row > div.marker {
 					&:hover {
 						background-color:yellow;
 					}

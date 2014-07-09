@@ -33,7 +33,6 @@ class Feed(models.Model):
 	update_interval=models.IntegerField(default=300, help_text='Base time between updates in minutes')
 	next_fetch=models.DateTimeField(blank=True, null=True)
 	purge_interval=models.IntegerField(default=0)
-	category=models.ForeignKey('Category', blank=True, null=True)
 	enabled=models.BooleanField(default=True)
 	success=models.BooleanField(default=True)
 	last_error=models.CharField(max_length=500, blank=True)
@@ -343,7 +342,7 @@ class Article(models.Model):
 	def create_user_info(self):
 		tmp=[]
 		for subscription in UserFeedSubscription.objects.filter(feed=self.feed).only('user'):
-			tmp.append(UserArticleInfo(user=subscription.user, feed=self.feed, article=self))
+			tmp.append(UserArticleInfo(user=subscription.user, feed=subscription, article=self))
 		UserArticleInfo.objects.bulk_create(tmp)
 		del tmp
 		return True
@@ -370,10 +369,28 @@ class UserFeedSubscription(models.Model):
 	feed=models.ForeignKey(Feed, db_index=True)
 	title=models.TextField(blank=True)
 	date_added=models.DateTimeField(auto_now_add=True)
+	category=models.ForeignKey('Category', blank=True, null=True)
 
 	@property
 	def unread(self):
 		return UserFeedCache.objects.get(user=self.user, feed=self.feed).unread
+
+	@property
+	def get_category(self):
+		return self.category.pk if self.category is not None else None
+
+	def get_basic_info(self):
+		tmp=self.feed.get_basic_info()
+		tmp.update({'pk':self.pk, 'title':self.title, 'category':self.get_category})
+		return tmp
+
+	def get_all_info(self):
+		tmp=self.feed.get_all_info()
+		tmp.update({'pk':self.pk, 'title':self.title, 'category':self.get_category})
+		return tmp
+
+	def __unicode__(self):
+		return unicode(self.title)
 
 	class Meta:
 		ordering=['feed__title',]
@@ -382,21 +399,19 @@ class UserFeedSubscription(models.Model):
 
 class UserArticleInfo(models.Model):
 	user=models.ForeignKey(User, db_index=True)
-	feed=models.ForeignKey(Feed, db_index=True)
+	feed=models.ForeignKey(UserFeedSubscription, db_index=True)
 	article=models.ForeignKey(Article, db_index=True)
 	read=models.BooleanField(db_index=True, default=False)
 	date_read=models.DateTimeField(blank=True, null=True)
 
-	def get_basic_info(self, feed_title=None):
-		if feed_title is None:
-			feed_title=self.feed.title
+	def get_basic_info(self):
 		return {
 			'pk':self.pk,
 			'user':self.user.pk,
 			'feed':{
 				'pk':self.feed.pk,
-				'title':feed_title,
-				'image':self.feed.get_feed_image if self.feed.get_feed_image is not None else settings.STATIC_URL + 'img/rss.png'
+				'title':self.feed.title,
+				'image':self.feed.feed.get_feed_image if self.feed.feed.get_feed_image is not None else settings.STATIC_URL + 'img/rss.png'
 			},
 			'article':{
 				'pk':self.article.pk,
@@ -421,7 +436,7 @@ class UserArticleInfo(models.Model):
 
 class UserFeedCache(models.Model):
 	user=models.ForeignKey(User)
-	feed=models.ForeignKey(Feed)
+	feed=models.ForeignKey(UserFeedSubscription)
 	unread=models.PositiveIntegerField(default=0)
 
 	def recalculate(self):
@@ -445,8 +460,17 @@ class UserFeedCache(models.Model):
 
 
 class Category(models.Model):
+	user=models.ForeignKey(User)
 	name=models.CharField(max_length=50)
 	parent=models.ForeignKey('Category', blank=True, null=True)
+
+	def get_basic_info(self):
+		return {
+			'pk':self.pk,
+			'user':self.user.pk,
+			'name':self.name,
+			'parent':self.parent,
+		}
 
 	def __unicode__(self):
 		return unicode(self.name)
@@ -465,7 +489,7 @@ def recalculate_user_cache(user):
 
 def recalulate_feed_cache(feed):
 	feed=Feed.objects.get(pk=feed)
-	for cache in UserFeedCache.objects.filter(feed=feed):
+	for cache in UserFeedCache.objects.filter(feed__feed=feed):
 		cache.recalculate()
 	return True
 
@@ -486,9 +510,9 @@ def delete_feed(sender, **kwargs):
 @receiver(pre_delete, sender=UserFeedSubscription, dispatch_uid='feeds.delete_subscription')
 def delete_subscription(sender, **kwargs):
 	instance=kwargs['instance']
-	UserArticleInfo.objects.filter(user=instance.user, feed=instance.feed).delete()
-	UserFeedCache.objects.filter(user=instance.user, feed=instance.feed)
-	if UserFeedSubscription.objects.filter(feed=instance.feed).count() - 1==0:
+	UserArticleInfo.objects.filter(user=instance.user, feed__feed=instance.feed).delete()
+	UserFeedCache.objects.filter(user=instance.user, feed__feed=instance.feed)
+	if UserFeedSubscription.objects.filter(feed__feed=instance.feed).count() - 1==0:
 		Feed.objects.filter(pk=instance.feed_id).update(enabled=False)
 
 

@@ -14,4 +14,7 @@ urlpatterns=patterns('feeds.views',
 	url(r'^article/(?P<article>\d{1,12})/read$', 'mark_read', name='mark_read'),
 	url(r'^article/(?P<article>\d{1,12})/unread$', 'mark_unread', name='mark_unread'),
 	url(r'^article/(?P<article>\d{1,12})/$', 'view_article', name='view_article'),
+	url(r'^category/list/$', 'category_list', name='category_list'),
+	url(r'^category/(?P<category>\d{1,12})/new$', 'new_category_articles', name='new_category_articles'),
+	url(r'^category/(?P<category>\d{1,12})/articles$', 'view_category_articles', name='view_category_articles'),
 )

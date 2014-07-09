@@ -64,7 +64,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 class UserFeedSubscriptionAdmin(admin.ModelAdmin):
-	list_display=('user', 'feed')
+	list_display=('user', 'feed', 'category')
 	list_filter=('user',)
 	readonly_fields=('user',)
 
