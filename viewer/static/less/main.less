@@ -29,9 +29,12 @@ html, body, body>div.container {
 
 .feed-control {
 	// display:inline;
-	height:20px;
+	background:#fff;
+	height:22px;
 	margin-left:40px;
+	padding-right:13px;
 	position:absolute;
+	z-index:1;
 }
 
 .feed-list {
@@ -91,9 +94,12 @@ html, body, body>div.container {
 			cursor:pointer;
 			height:14px
 		}
+		& .glyphicon {
+			z-index:-5;
+		}
 		height:100%;
 		list-style:none;
-		margin-top:25px;
+		padding-top:25px;
 		overflow:auto;
 	}
 	border-right:1px solid fade(gray, 25%);
