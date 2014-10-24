@@ -184,6 +184,7 @@ class FeedManager
 		feed=@get_current_feed()
 		$.ajax({
 			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/mark_read"
+			data:{'newest_article':window.feeds.newest_article.toISOString()}
 			dataType:'json'
 			success:(data)=>
 				$('.article-row').addClass('read')
@@ -684,7 +685,7 @@ check_for_new_articles=()->
 				else
 					$("#category-#{feed}").removeClass('update')
 			window.feeds.update_title()
-			setTimeout(check_for_new_articles, 30000)
+			setTimeout(check_for_new_articles, 60000)
 	})
 
 

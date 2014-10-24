@@ -2,8 +2,10 @@ import logging
 import os
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rssproject.settings")
+import django
+django.setup()
 
-from apscheduler.scheduler import Scheduler
+from apscheduler.schedulers.blocking import BlockingScheduler as Scheduler
 from datetime import datetime
 from django import db
 from django.conf import settings
@@ -31,6 +33,6 @@ def update_feeds():
 
 
 if __name__=='__main__':
-	sched=Scheduler(standalone=True)
-	sched.add_interval_job(update_feeds, minutes=1)
+	sched=Scheduler()
+	sched.add_job(update_feeds, 'interval', minutes=1)
 	sched.start()

@@ -57,13 +57,14 @@ def new_category_articles(request, category):
 @login_required
 def mark_all_read(request, feed):
 	feed=int(feed)
+	newest_article=datetime.strptime(request.GET['newest_article'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone('utc'), microsecond=999999)
 	if feed!=0:
 		feed=UserFeedSubscription.objects.get(pk=feed)
-		UserArticleInfo.objects.filter(user=request.user, feed=feed, read=False).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
+		UserArticleInfo.objects.filter(user=request.user, feed=feed, read=False, article__date_added__lt=newest_article).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
 		unread_count=UserFeedCache.objects.get(user=request.user, feed=feed).recalculate().unread
 		data=[{'feed':0, 'unread':UserArticleInfo.objects.filter(user=request.user, read=False).count()}, {'feed':feed.pk, 'unread':unread_count}]
 	else:
-		UserArticleInfo.objects.filter(user=request.user, read=False).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
+		UserArticleInfo.objects.filter(user=request.user, read=False, article__date_added__lt=newest_article).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
 		unread_count=recalculate_user_cache(request.user.pk)
 		data=[{'feed':0, 'unread':max(unread_count, 0)}]
 	return HttpResponse(json.dumps(data), content_type='application/json')

@@ -3,7 +3,9 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>{% block title %}index{% endblock %}</title>
+		<link rel="shortcut icon" href="{{STATIC_URL}}/favicon.ico">
+		<link rel="apple-touch-icon-precomposed" sizes="152x152" href="{{STATIC_URL}}/favicon-152.png">
+		<title>{% block title %}rSS{% endblock %}</title>
 		{%- block resources %}
 		<!--[if lt IE 9]>
 		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>

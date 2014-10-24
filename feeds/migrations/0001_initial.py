@@ -1,73 +1,163 @@
 # -*- coding: utf-8 -*-
-import datetime
-from south.db import db
-from south.v2 import SchemaMigration
-from django.db import models
+from __future__ import unicode_literals
+
+from django.db import models, migrations
+from django.conf import settings
+import jsonfield.fields
 
 
-class Migration(SchemaMigration):
+class Migration(migrations.Migration):
 
-    def forwards(self, orm):
-        # Adding model 'Feed'
-        db.create_table(u'feeds_feed', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('title', self.gf('django.db.models.fields.CharField')(max_length=200)),
-            ('feed_url', self.gf('django.db.models.fields.URLField')(max_length=200)),
-            ('site_url', self.gf('django.db.models.fields.URLField')(max_length=200)),
-            ('last_updated', self.gf('django.db.models.fields.DateTimeField')()),
-            ('update_interval', self.gf('django.db.models.fields.IntegerField')(default=0)),
-            ('purge_interval', self.gf('django.db.models.fields.IntegerField')(default=0)),
-        ))
-        db.send_create_signal(u'feeds', ['Feed'])
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
 
-        # Adding model 'Article'
-        db.create_table(u'feeds_article', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('guid', self.gf('django.db.models.fields.CharField')(max_length=200)),
-            ('title', self.gf('django.db.models.fields.CharField')(max_length=500)),
-            ('author', self.gf('django.db.models.fields.CharField')(max_length=250)),
-            ('date_published', self.gf('django.db.models.fields.DateField')()),
-            ('date_updated', self.gf('django.db.models.fields.DateField')()),
-            ('description', self.gf('django.db.models.fields.CharField')(max_length=1000)),
-            ('content', self.gf('django.db.models.fields.TextField')()),
-            ('url', self.gf('django.db.models.fields.URLField')(max_length=200)),
-            ('read', self.gf('django.db.models.fields.BooleanField')(default=False)),
-        ))
-        db.send_create_signal(u'feeds', ['Article'])
-
-
-    def backwards(self, orm):
-        # Deleting model 'Feed'
-        db.delete_table(u'feeds_feed')
-
-        # Deleting model 'Article'
-        db.delete_table(u'feeds_article')
-
-
-    models = {
-        u'feeds.article': {
-            'Meta': {'object_name': 'Article'},
-            'author': ('django.db.models.fields.CharField', [], {'max_length': '250'}),
-            'content': ('django.db.models.fields.TextField', [], {}),
-            'date_published': ('django.db.models.fields.DateField', [], {}),
-            'date_updated': ('django.db.models.fields.DateField', [], {}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '1000'}),
-            'guid': ('django.db.models.fields.CharField', [], {'max_length': '200'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'read': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'title': ('django.db.models.fields.CharField', [], {'max_length': '500'}),
-            'url': ('django.db.models.fields.URLField', [], {'max_length': '200'})
-        },
-        u'feeds.feed': {
-            'Meta': {'object_name': 'Feed'},
-            'feed_url': ('django.db.models.fields.URLField', [], {'max_length': '200'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'last_updated': ('django.db.models.fields.DateTimeField', [], {}),
-            'purge_interval': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
-            'site_url': ('django.db.models.fields.URLField', [], {'max_length': '200'}),
-            'title': ('django.db.models.fields.CharField', [], {'max_length': '200'}),
-            'update_interval': ('django.db.models.fields.IntegerField', [], {'default': '0'})
-        }
-    }
-
-    complete_apps = ['feeds']
+    operations = [
+        migrations.CreateModel(
+            name='Article',
+            fields=[
+                ('id', models.AutoField(db_index=True, serialize=False, primary_key=True)),
+                ('guid', models.TextField(db_index=True)),
+                ('title', models.TextField()),
+                ('author', models.CharField(max_length=250, blank=True)),
+                ('date_added', models.DateTimeField()),
+                ('date_published', models.DateTimeField()),
+                ('date_updated', models.DateTimeField()),
+                ('date_last_seen', models.DateTimeField()),
+                ('description', models.TextField(blank=True)),
+                ('content', models.TextField(blank=True)),
+                ('url', models.URLField(max_length=500)),
+            ],
+            options={
+                'ordering': ['-date_published', '-date_added', '-id'],
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Category',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('name', models.CharField(max_length=50)),
+                ('parent', models.ForeignKey(blank=True, to='feeds.Category', null=True)),
+                ('user', models.ForeignKey(to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ['name'],
+                'verbose_name_plural': 'categories',
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Feed',
+            fields=[
+                ('id', models.AutoField(db_index=True, serialize=False, primary_key=True)),
+                ('title', models.TextField(blank=True)),
+                ('feed_url', models.URLField(max_length=500)),
+                ('site_url', models.URLField(max_length=500, null=True, blank=True)),
+                ('feed_image', models.ImageField(null=True, upload_to=b'feeds', blank=True)),
+                ('date_added', models.DateTimeField(null=True, blank=True)),
+                ('last_fetched', models.DateTimeField(null=True, blank=True)),
+                ('last_updated', models.DateTimeField(null=True, blank=True)),
+                ('update_interval', models.IntegerField(default=300, help_text=b'Base time between updates in minutes')),
+                ('next_fetch', models.DateTimeField(null=True, blank=True)),
+                ('purge_interval', models.IntegerField(default=0)),
+                ('enabled', models.BooleanField(default=True)),
+                ('success', models.BooleanField(default=True)),
+                ('last_error', models.CharField(max_length=500, blank=True)),
+                ('statistics', jsonfield.fields.JSONField(default={})),
+                ('statistics_updated', models.DateTimeField(null=True, blank=True)),
+            ],
+            options={
+                'ordering': ['title'],
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='UserArticleInfo',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('read', models.BooleanField(default=False, db_index=True)),
+                ('date_read', models.DateTimeField(null=True, blank=True)),
+                ('article', models.ForeignKey(to='feeds.Article')),
+            ],
+            options={
+                'ordering': ['-article__date_published', '-article__date_added', '-article__id'],
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='UserFeedCache',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('unread', models.PositiveIntegerField(default=0)),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='UserFeedSubscription',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('title', models.TextField(blank=True)),
+                ('date_added', models.DateTimeField(auto_now_add=True)),
+                ('category', models.ForeignKey(blank=True, to='feeds.Category', null=True)),
+                ('feed', models.ForeignKey(to='feeds.Feed')),
+                ('user', models.ForeignKey(to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ['feed__title'],
+            },
+            bases=(models.Model,),
+        ),
+        migrations.AlterUniqueTogether(
+            name='userfeedsubscription',
+            unique_together=set([('user', 'feed')]),
+        ),
+        migrations.AddField(
+            model_name='userfeedcache',
+            name='feed',
+            field=models.ForeignKey(to='feeds.UserFeedSubscription'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='userfeedcache',
+            name='user',
+            field=models.ForeignKey(to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='userfeedcache',
+            unique_together=set([('user', 'feed')]),
+        ),
+        migrations.AlterIndexTogether(
+            name='userfeedcache',
+            index_together=set([('user', 'feed')]),
+        ),
+        migrations.AddField(
+            model_name='userarticleinfo',
+            name='feed',
+            field=models.ForeignKey(to='feeds.UserFeedSubscription'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='userarticleinfo',
+            name='user',
+            field=models.ForeignKey(to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='userarticleinfo',
+            unique_together=set([('user', 'feed', 'article')]),
+        ),
+        migrations.AlterIndexTogether(
+            name='userarticleinfo',
+            index_together=set([('user', 'feed', 'read'), ('user', 'feed')]),
+        ),
+        migrations.AddField(
+            model_name='article',
+            name='feed',
+            field=models.ForeignKey(to='feeds.Feed'),
+            preserve_default=True,
+        ),
+    ]
