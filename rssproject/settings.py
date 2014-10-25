@@ -155,7 +155,7 @@ DEFAULT_ARTICLE_PURGE_INTERVAL=30
 PURGE_UNREAD=False
 
 
-class SchedulerFilter:
+class SchedulerFilter(object):
 	def filter(self, record):
 		if record.msg.startswith('Running job') or record.msg.endswith('executed successfully'):
 			return 0
@@ -163,6 +163,6 @@ class SchedulerFilter:
 			return 1
 
 try:
-	from settings_local import *
+	from rssproject.settings_local import *
 except ImportError:
 	pass

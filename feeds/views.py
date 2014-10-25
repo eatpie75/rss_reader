@@ -1,5 +1,5 @@
 import json
-import utils as feed_utils
+import feeds.utils as feed_utils
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.core.serializers.json import DjangoJSONEncoder
@@ -112,11 +112,11 @@ def refresh_feed(request, feed):
 		feed.feed.update()
 		data.append({'feed':feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=feed).unread})
 	else:
-		new_articles=0
+		num_new_articles=0
 		for user_feed in UserFeedSubscription.objects.filter(user=request.user, feed__last_updated__lt=datetime.now(timezone('utc')) - timedelta(minutes=10)):
-			new_articles+=user_feed.feed.update()
+			num_new_articles+=user_feed.feed.update()
 			data.append({'feed':user_feed.pk, 'unread':UserFeedCache.objects.get(user=request.user, feed=user_feed).unread})
-		logger.info('{} new article(s)'.format(new_articles))
+		logger.info('{} new article(s)'.format(num_new_articles))
 	unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 	data.append({'feed':0, 'unread':unread_count})
 	return HttpResponse(json.dumps(data), content_type='application/json')
@@ -144,8 +144,8 @@ def view_feed_list(request):
 	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed__feed__id', 'feed__title', 'feed__feed__success', 'feed__feed__last_error', 'category__id')
 	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
 	individual_unread_count={}
-	for a in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
-		individual_unread_count[a.feed.feed_id]=a.unread
+	for feed in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
+		individual_unread_count[feed.feed.feed_id]=feed.unread
 	data={'total_unread_count':max(total_unread_count, 0)}
 	feed_list=[]
 	for user_feed in user_feeds:
@@ -159,7 +159,7 @@ def view_feed_list(request):
 		})
 	data['feed_list']=feed_list
 	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
+	# return render_to_response('blank.html.j2', {'feed':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required

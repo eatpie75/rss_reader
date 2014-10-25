@@ -581,7 +581,7 @@ window.templates={
 	'articles':"{{articles}}
 	<li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}' data-id='{{article.pk}}'>
 		<div class='article-row-title'>
-			<img class='feed-icon' src='{{feed.image}}' title='{{feed.title|escape}}'>
+			<img class='feed-icon' src='{{feed.image}}' title='{{feed.title|sanitize}}' alt='Feed Icon'>
 			<div class='article-feed-name'>{{feed.title|escape}}</div>
 			<div class='article-title'>{{article.title|escape}}</div>
 			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>

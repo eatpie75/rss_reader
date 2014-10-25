@@ -18,13 +18,13 @@ logger=logging.getLogger('apscheduler.scheduler')
 
 
 def update_feeds():
-	f=0
+	feeds_updated=0
 	i=0
 	now=timezone('utc').localize(datetime.utcnow())
 	for feed in Feed.objects.filter(next_fetch__lt=now).order_by('?'):
 		i+=feed.update()
-		f+=1
-		if f>20:
+		feeds_updated+=1
+		if feeds_updated>20:
 			break
 	if i>0:
 		logger.info('{} new article(s)'.format(i))

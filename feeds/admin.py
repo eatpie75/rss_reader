@@ -1,6 +1,6 @@
 from datetime import datetime
 from django.contrib import admin
-from models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
+from feeds.models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
 from pytz import timezone
 
 

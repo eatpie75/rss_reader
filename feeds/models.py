@@ -72,7 +72,8 @@ class Feed(models.Model):
 		if feed.bozo and not len(feed.entries):  # (feed.bozo_exception.args[0]!='XML or text declaration not at start of entity' and not isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
 			logger.error('exception')
 			logger.error(feed.bozo_exception)
-			if 'status' in feed: logger.info(feed.status)
+			if 'status' in feed:
+				logger.info(feed.status)
 			self.success=False
 			self.last_error=str(feed.bozo_exception)
 			# now=timezone('utc').localize(datetime.utcnow())
@@ -172,7 +173,7 @@ class Feed(models.Model):
 			article=Article(
 				feed=self,
 				guid=entry_id,
-				title=entry.title[:500],
+				title=unicode(entry.title[:500]),
 				url=entry.link,
 				date_added=timezone('utc').localize(now),
 				date_published=timezone('utc').localize(date),
