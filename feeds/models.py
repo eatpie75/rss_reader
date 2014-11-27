@@ -513,7 +513,7 @@ def delete_subscription(sender, **kwargs):
 	instance=kwargs['instance']
 	UserArticleInfo.objects.filter(user=instance.user, feed__feed=instance.feed).delete()
 	UserFeedCache.objects.filter(user=instance.user, feed__feed=instance.feed)
-	if UserFeedSubscription.objects.filter(feed__feed=instance.feed).count() - 1==0:
+	if UserFeedSubscription.objects.filter(feed=instance.feed).count() - 1==0:
 		Feed.objects.filter(pk=instance.feed_id).update(enabled=False)
 
 
