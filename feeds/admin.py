@@ -1,14 +1,36 @@
 from datetime import datetime
 from django.contrib import admin
+from django import forms
 from feeds.models import Feed, Article, Category, UserFeedSubscription, UserArticleInfo, UserFeedCache
 from pytz import timezone
 
 
+class FeedAdminForm(forms.ModelForm):
+	class Meta:
+		model=Feed
+		widgets={
+			'title': forms.TextInput(),
+		}
+
+
 class FeedAdmin(admin.ModelAdmin):
-	list_display=('title', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
+	form=FeedAdminForm
+	list_display=('title', 'enabled', 'last_fetched', 'last_updated', 'next_fetch', 'update_interval', 'time_til_fetch', 'needs_update', 'show_favicon')
 	actions=['force_update', 'update_favicon', 'update_statistics']
 	exclude=('statistics',)
-	readonly_fields=('last_updated', 'last_error', 'statistics_updated')
+	readonly_fields=('last_updated', 'last_error', 'statistics', 'statistics_updated', 'date_added', 'time_til_fetch', 'show_favicon')
+	fieldsets=(
+		(None, {
+			'fields':('title', 'feed_url', 'site_url', 'show_favicon', 'feed_image')
+		}), (None, {
+			'fields':('date_added', 'last_fetched', 'last_updated', 'update_interval', 'next_fetch', 'time_til_fetch')
+		}), (None, {
+			'fields':('enabled', 'success', 'last_error')
+		}), ('Statistics', {
+			'classes':('collapse',),
+			'fields':('statistics', 'statistics_updated')
+		})
+	)
 
 	def force_update(self, request, qs):
 		num_feeds=len(qs)
