@@ -139,7 +139,6 @@ class FeedManager
 				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data.articles}))
 				@bind()
 				if data.length<15
-					# console.log 'no more'
 					@more_articles_to_load=false
 				if @current_feed_is_category then @update_unread(data.unread, feed)
 				@busy=false
@@ -168,7 +167,7 @@ class FeedManager
 			dataType:'json'
 			success:(data)=>
 				$("#article-#{article}").addClass('read')
-				$("#article-#{article}>div.article-content>div.article-content-footer>div>span:last").text('Mark unread')
+				$("#article-#{article}>div.collapse>div.article-content>div.article-content-footer>div>span:last").text('Mark unread')
 				@update_unread(data)
 		})
 	mark_unread:(article)->
@@ -177,7 +176,7 @@ class FeedManager
 			dataType:'json'
 			success:(data)=>
 				$("#article-#{article}").removeClass('read')
-				$("#article-#{article}>div.article-content>div.article-content-footer>div>span:last").text('Mark read')
+				$("#article-#{article}>div.collapse>div.article-content>div.article-content-footer>div>span:last").text('Mark read')
 				@update_unread(data)
 		})
 	mark_all_read:()->
@@ -192,7 +191,7 @@ class FeedManager
 					$('.feed-row>small').text('(0)')
 				else
 					$("#feed-#{feed}>small").text('(0)')
-				$('li.article-row>div.article-content>div.article-content-footer>div>span:last').text('Mark unread')
+				$('li.article-row>div.collapse>div.article-content>div.article-content-footer>div>span:last').text('Mark unread')
 				@update_unread(data)
 		})
 	refresh_feed:()->
@@ -226,7 +225,6 @@ class FeedManager
 				@feeds.total_unread_count=data.total_unread_count
 				for feed in data.feed_list
 					@feeds.add(new Feed(feed))
-				# $('.feed-list>ul').html(Mark.up(window.templates.feed_list, {'categories':@categories, 'feeds':data}))
 				@render_feed_list()
 				@bind(true)
 				if cb?
@@ -246,7 +244,6 @@ class FeedManager
 			render+=Mark.up(window.template_includes.feed_row, feed)
 		$('.feed-list>ul').html(render)
 		@bind(true)
-		# return render
 		return
 	toggle_category:(id)->
 		row=$("#category-c#{id}")
@@ -276,27 +273,29 @@ class FeedManager
 		@change_feed(@get_current_feed())
 	toggle_article:(title, e=null)->
 		row=title.parent()
-		child=row.children('.article-content')
+		collapse=row.children('div.collapse')
+		child=collapse.children('div.article-content')
 		main_content=child.children('.article-content-main')
 		if row.hasClass('active')
-			child.css('display', 'none')
 			row.removeClass('active')
+			collapse.collapse('hide')
 		else
 			$('li.article-row.active').each(->
-				$(@).removeClass('active').children('.article-content').css('display', 'none')
+				$(@).children('div.collapse').collapse('hide')
+				$(@).removeClass('active')
 			)
-			child.css('display', 'inline-block')
 			row.addClass('active')
 			if not main_content.data('loaded')
-				main_content.html(window.templates.loading_bar)
 				$.ajax({
 					url:"#{window.AJAX_BASE}feeds/article/#{row.data('id')}/"
 					dataType:'json'
-					# async:false
 					success:(data)->
 						main_content.html(data.article__content)
 						main_content.data('loaded', true)
+						collapse.collapse('show')
 				})
+			else
+				collapse.collapse('show')
 			if not row.hasClass('read')
 				@mark_read(row.data('id'))
 		if e?
@@ -407,11 +406,10 @@ class FeedManager
 		_this=@
 		$('li.article-row>div.article-row-title').off('click')
 		$('li.article-row>div.article-row-title').on('click', (e)->
-			# console.log('click detected')
 			_this.toggle_article($(@), e)
 		)
-		$('li.article-row>div.article-content>div.article-content-footer>div').off('click')
-		$('li.article-row>div.article-content>div.article-content-footer>div').on('click', (e)->
+		$('li.article-row>div.collapse>div.article-content>div.article-content-footer>div').off('click')
+		$('li.article-row>div.collapse>div.article-content>div.article-content-footer>div').on('click', (e)->
 			row=$(@).parents('li')
 			id=row.data('id')
 			if row.hasClass('read')
@@ -586,15 +584,17 @@ window.templates={
 			<div class='article-title'>{{article.title|escape}}</div>
 			<div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div>
 		</div>
-		<div class='article-content panel panel-default'>
-			<div class='article-content-title panel-heading'>
-				<h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2>
-			</div>
-			<div class='article-content-main panel-body' data-loaded='false'>
-				
-			</div>
-			<div class='article-content-footer panel-footer'>
-				<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>
+		<div class='collapse'>
+			<div class='article-content panel panel-default'>
+				<div class='article-content-title panel-heading'>
+					<h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2>
+				</div>
+				<div class='article-content-main panel-body' data-loaded='false'>
+					
+				</div>
+				<div class='article-content-footer panel-footer'>
+					<div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div>
+				</div>
 			</div>
 		</div>
 	</li>

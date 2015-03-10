@@ -18,17 +18,13 @@ html, body, body>div.container {
 }
 
 
-// .container {position:relative;}
-
 .screen-height {
 	height:100%;
-	// max-height:100%;
 	overflow:auto;
 	position:relative;
 }
 
 .feed-control {
-	// display:inline;
 	background:#fff;
 	height:22px;
 	margin-left:40px;
@@ -49,7 +45,6 @@ html, body, body>div.container {
 			&.category-row {
 				& > div.folder {
 					padding-right:5px;
-					// padding-top:2px;
 				}
 				& > div.marker {
 					display:inline-block;
@@ -116,15 +111,9 @@ html, body, body>div.container {
 	& > ul {
 		& > li {
 			&.article-row {
-				& > div {
-					display:inline-block;
-				}
+				& > div {}
 				& > div.article-row-title {
 					& > .feed-icon {
-						// @media (max-width: @screen-xs-max) {
-						// 	display:none;
-						// }
-						// vertical-align:middle;
 						margin:1px 0 0 1px;
 					}
 					& > div.article-feed-name {
@@ -134,8 +123,6 @@ html, body, body>div.container {
 						vertical-align:middle;
 						white-space:nowrap;
 						@media (max-width: @screen-sm-max) {
-							// max-width:30%;
-							// width:auto;
 							display:none;
 						}
 						width:170px;
@@ -156,9 +143,6 @@ html, body, body>div.container {
 						display:inline-block;
 						float:right;
 						margin-top:2px;
-						// overflow:hidden;
-						// text-overflow:ellipsis;
-						// white-space:nowrap;
 					}
 					&:hover {
 						background-color:azure;
@@ -167,14 +151,12 @@ html, body, body>div.container {
 					line-height:15px;
 					width:100%;
 				}
-				& > div.article-content {
+				& > div.collapse > div.article-content {
 					& > div.article-content-title {
 						& > h2 {
 							line-height:30px;
 							margin:0;
 						}
-						// display:inline-block;
-						// margin-bottom:15px;
 					}
 					& > div.article-content-main {
 						& img {
@@ -193,10 +175,7 @@ html, body, body>div.container {
 					border-right:0;
 					border-radius:0;
 					cursor:auto;
-					display:none;
 					margin-bottom:0;
-					// margin-top:5px;
-					.transition(height 0.5s ease);
 					width:100%;
 				}
 				&.active {
@@ -211,9 +190,7 @@ html, body, body>div.container {
 				line-height:14px;
 			}
 			&.read {
-				&:hover {
-					// background-color:fade(gray, 50%);
-				}
+				&:hover {}
 				div.article-row-title {
 					color:fade(@text-color, 50%);
 				}
@@ -222,14 +199,9 @@ html, body, body>div.container {
 			border-left:none;
 			list-style:none;
 			margin:0 0 -1px 0;
-			// height:18px;
 		}
 		padding-left:0px;
 	}
-	// border-left:1px solid black;
-	// display:inline-block;
 	margin-left:0px;
 	padding:0px;
-	// position:absolute;
-	// left:(@gridColumnWidth*3)+15;
 }
