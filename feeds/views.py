@@ -1,10 +1,8 @@
-import json
 import feeds.utils as feed_utils
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Sum
-from django.http import HttpResponse
+from django.http import JsonResponse
 # from django.shortcuts import render_to_response
 # from django.template import RequestContext
 from pytz import timezone
@@ -20,7 +18,7 @@ def feed_info(request, feed):
 	feed=int(feed)
 	user_feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
 	data=user_feed.get_all_info()
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 
 
 @login_required
@@ -36,7 +34,7 @@ def new_articles(request, feed):
 	else:
 		data['new_articles']=UserArticleInfo.objects.filter(user=request.user, read=False, article__date_added__gt=newest_article).exists()
 
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -50,7 +48,7 @@ def new_category_articles(request, category):
 	category=Category.objects.get(pk=category)
 	data['new_articles']=UserArticleInfo.objects.filter(user=request.user, feed__category=category, read=False, article__date_added__gt=newest_article).exists()
 
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -67,7 +65,7 @@ def mark_all_read(request, feed):
 		UserArticleInfo.objects.filter(user=request.user, read=False, article__date_added__lt=newest_article).update(read=True, date_read=timezone('utc').localize(datetime.utcnow()))
 		unread_count=recalculate_user_cache(request.user.pk)
 		data=[{'feed':0, 'unread':max(unread_count, 0)}]
-	return HttpResponse(json.dumps(data), content_type='application/json')
+	return JsonResponse(data, safe=False)
 
 
 @login_required
@@ -83,7 +81,7 @@ def mark_read(request, article):
 		data=[{'feed':0, 'unread':unread_count}, {'feed':article.feed.pk, 'unread':feed_unread}]
 	else:
 		data=[]
-	return HttpResponse(json.dumps(data), content_type='application/json')
+	return JsonResponse(data, safe=False)
 
 
 @login_required
@@ -99,7 +97,7 @@ def mark_unread(request, article):
 		data=[{'feed':0, 'unread':unread_count}, {'feed':article.feed.pk, 'unread':feed_unread}]
 	else:
 		data=[]
-	return HttpResponse(json.dumps(data), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -119,13 +117,13 @@ def refresh_feed(request, feed):
 		logger.info('{} new article(s)'.format(num_new_articles))
 	unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 	data.append({'feed':0, 'unread':unread_count})
-	return HttpResponse(json.dumps(data), content_type='application/json')
+	return JsonResponse(data, safe=False)
 
 
 @login_required
 def view_article(request, article):
 	article=UserArticleInfo.objects.filter(user=request.user, article=article).select_related('article__content')
-	return HttpResponse(json.dumps(article.values('article__content')[0], cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(article.values('article__content')[0], safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(article.values('article__content')[0], cls=DjangoJSONEncoder)})
 
 
@@ -135,7 +133,7 @@ def category_list(request):
 	data=[]
 	for category in user_categories:
 		data.append(category.get_basic_info())
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -158,7 +156,7 @@ def view_feed_list(request):
 			'category':user_feed.category.id if user_feed.category is not None else None,
 		})
 	data['feed_list']=feed_list
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'feed':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -196,7 +194,7 @@ def view_feed_articles(request, feed):
 		tmp.append(user_article.get_basic_info())
 	data['articles']=tmp
 	data['unread']=max(data['unread'], 0)
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -229,7 +227,7 @@ def view_category_articles(request, category):
 		tmp.append(user_article.get_basic_info())
 	data['articles']=tmp
 	# data['unread']=max(data['unread'], 0)
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
@@ -267,13 +265,13 @@ def add_feed(request):
 			data={'error':'Input a valid url.'}
 	else:
 		data={'error':''}
-	return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+	return JsonResponse(data, safe=False)
 
 
 @login_required
 def edit_feed(request, feed):
 	def finish(data):
-		return HttpResponse(json.dumps(data, cls=DjangoJSONEncoder), content_type='application/json')
+		return JsonResponse(data, safe=False)
 	feed=int(feed)
 	if request.method=='POST':
 		form=EditFeedForm(request.POST)
