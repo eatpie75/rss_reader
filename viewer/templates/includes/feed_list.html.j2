@@ -1,8 +1,0 @@
-						<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'>
-							Unread Items <small>({{total_unread_count}})</small>
-						</li>
-						{%- for user_feed in user_feeds %}
-						<li class='feed-row{% if not user_feed.feed.success %} error{% endif %}' id='feed-{{user_feed.feed.id}}' data-id='{{user_feed.feed.id}}' data-name='{{user_feed.feed.title}}'{% if not user_feed.feed.success %} title='{{user_feed.feed.last_error}}'{% endif %}>
-							<span>{{user_feed.feed.title}}</span> <small>({{individual_unread_count[user_feed.feed.id]|default('0')}})</small>
-						</li>
-						{%- endfor %}
