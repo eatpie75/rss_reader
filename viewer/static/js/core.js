@@ -253,7 +253,7 @@
         success: (function(_this) {
           return function(data) {
             $("#article-" + article).addClass('read');
-            $("#article-" + article + ">div.collapse>div.article-content>div.article-content-footer>div>span:last").text('Mark unread');
+            $("#article-" + article + ">div.article-content>div.article-content-footer>div>span:last").text('Mark unread');
             return _this.update_unread(data);
           };
         })(this)
@@ -267,7 +267,7 @@
         success: (function(_this) {
           return function(data) {
             $("#article-" + article).removeClass('read');
-            $("#article-" + article + ">div.collapse>div.article-content>div.article-content-footer>div>span:last").text('Mark read');
+            $("#article-" + article + ">div.article-content>div.article-content-footer>div>span:last").text('Mark read');
             return _this.update_unread(data);
           };
         })(this)
@@ -291,7 +291,7 @@
             } else {
               $("#feed-" + feed + ">small").text('(0)');
             }
-            $('li.article-row>div.collapse>div.article-content>div.article-content-footer>div>span:last').text('Mark unread');
+            $('li.article-row>div.article-content>div.article-content-footer>div>span:last').text('Mark unread');
             return _this.update_unread(data);
           };
         })(this)
@@ -429,23 +429,21 @@
     };
 
     FeedManager.prototype.toggle_article = function(title, e) {
-      var child, collapse, main_content, row;
+      var child, main_content, row;
       if (e == null) {
         e = null;
       }
       row = title.parent();
-      collapse = row.children('div.collapse');
-      child = collapse.children('div.article-content');
+      child = row.children('div.article-content');
       main_content = child.children('.article-content-main');
       if (row.hasClass('active')) {
         row.removeClass('active');
-        collapse.collapse('hide');
+        child.css('display', 'none');
       } else {
         $('li.article-row.active').each(function() {
-          console.log($(this).children('div.collapse'));
-          $(this).children('div.collapse').collapse('hide');
-          return $(this).removeClass('active');
+          return $(this).removeClass('active').children('.article-content').css('display', 'none');
         });
+        child.css('display', 'inline-block');
         row.addClass('active');
         if (!main_content.data('loaded')) {
           $.ajax({
@@ -453,12 +451,9 @@
             dataType: 'json',
             success: function(data) {
               main_content.html(data.article__content);
-              main_content.data('loaded', true);
-              return collapse.collapse('show');
+              return main_content.data('loaded', true);
             }
           });
-        } else {
-          collapse.collapse('show');
         }
         if (!row.hasClass('read')) {
           this.mark_read(row.data('id'));
@@ -637,8 +632,8 @@
       $('li.article-row>div.article-row-title').on('click', function(e) {
         return _this.toggle_article($(this), e);
       });
-      $('li.article-row>div.collapse>div.article-content>div.article-content-footer>div').off('click');
-      $('li.article-row>div.collapse>div.article-content>div.article-content-footer>div').on('click', function(e) {
+      $('li.article-row>div.article-content>div.article-content-footer>div').off('click');
+      $('li.article-row>div.article-content>div.article-content-footer>div').on('click', function(e) {
         var id, row;
         row = $(this).parents('li');
         id = row.data('id');
@@ -871,7 +866,7 @@
   window.templates = {
     'loading_bar': "<div class='progress progress-striped active'><div class='progress-bar' role='progressbar' style='width: 100%'></div></div>",
     'feed_list': "{{all_feed_row}} {{feeds.feed_list}} {{feed_row}} {{/feeds.feed_list}}",
-    'articles': "{{articles}} <li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}' data-id='{{article.pk}}'> <div class='article-row-title'> <img class='feed-icon' src='{{feed.image}}' title='{{feed.title|sanitize}}' alt='Feed Icon'> <div class='article-feed-name'>{{feed.title|escape}}</div> <div class='article-title'>{{article.title|escape}}</div> <div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div> </div> <div class='collapse'> <div class='article-content panel panel-default'> <div class='article-content-title panel-heading'> <h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2> </div> <div class='article-content-main panel-body' data-loaded='false'> </div> <div class='article-content-footer panel-footer'> <div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div> </div> </div> </div> </li> {{/articles}}",
+    'articles': "{{articles}} <li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}' data-id='{{article.pk}}'> <div class='article-row-title'> <img class='feed-icon' src='{{feed.image}}' title='{{feed.title|sanitize}}' alt='Feed Icon'> <div class='article-feed-name'>{{feed.title|escape}}</div> <div class='article-title'>{{article.title|escape}}</div> <div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div> </div> <div class='article-content panel panel-default'> <div class='article-content-title panel-heading'> <h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2> </div> <div class='article-content-main panel-body' data-loaded='false'> </div> <div class='article-content-footer panel-footer'> <div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div> </div> </div> </li> {{/articles}}",
     'modal': "<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'> <div class='modal-dialog'> <div class='modal-content'> <div class='modal-header'> <button type='button' class='close' data-dismiss='modal'>&times;</button> <h4 class='modal-title' id='modal_label'>{{title|escape}}</h4> </div> <div class='modal-body'></div> <div class='modal-footer'> <button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button> </div> </div> </div> </div>",
     'add_feed_form': "<div class='alert alert-danger hidden'></div> <form class='form-horizontal' role='form'> <div class='form-group'> <label class='col-md-2 control-label' for='id_url'>Feed URL</label> <div class='col-md-12'> <input class='form-control' id='id_url' name='url' type='url'> </div> </div> </form>",
     'edit_feed_form': "<div class='alert alert-danger hidden'></div> <form id='modal-form' class='form-horizontal' role='form'> <div class='form-group'> <label class='col-md-3 control-label' for='id_title'>Feed Title</label> <div class='col-md-11'> <input class='form-control' id='id_title' name='title' value='{{title|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label> <div class='col-md-11'> <input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_site_url'>Site URL</label> <div class='col-md-11'> <input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_category'>Category</label> <div class='col-md-11'> <select class='form-control' id='id_category' name='category'> <option value=''>---------</option>{{categories}} <option value='{{pk}}'{{if tmp.category|equals>`pk|number`}} selected{{/if}}>{{name}}</option> {{/categories}}</select> </div> </form> <div> Last fetched:{{last_fetched|datetime}}<br> Next fetch:{{next_fetch|datetime}} </div>"
