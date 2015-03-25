@@ -52,7 +52,8 @@ class FeedManager
 		document.title="#{unread}#{mod} #{el.data('name')}"
 	get_current_feed:()->
 		hash=window.location.hash.slice(1)
-		if hash=='' then hash='0'
+		if hash==''
+			hash='0'
 		if hash!=@current_feed
 			@current_feed=hash
 			@current_feed_is_category=hash[0]=='c'
@@ -363,8 +364,7 @@ class FeedManager
 				Mark.globals.tmp=data
 				$('#modal .modal-body').html(Mark.up(window.templates.edit_feed_form, data))
 				delete Mark.globals.tmp
-				$('#modal_submit').off('click')
-				$('#modal_submit').on('click', (e)=>
+				$('#modal_submit').off('click').on('click', (e)=>
 					e.stopImmediatePropagation()
 					$('#modal_submit').addClass('disabled')
 					$('#modal .modal-body>.alert').addClass('hidden')

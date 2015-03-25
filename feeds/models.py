@@ -67,17 +67,13 @@ class Feed(models.Model):
 		socket.setdefaulttimeout(25.0)
 		feed=feedparser.parse(self.feed_url)
 		socket.setdefaulttimeout(old_timeout)
-		# if (feed.bozo==0 or isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe)) and feed.status not in (404, 410, 500, 502):
-		# 	return (None, feed)
-		if feed.bozo and not len(feed.entries):  # (feed.bozo_exception.args[0]!='XML or text declaration not at start of entity' and not isinstance(feed.bozo_exception, feedparser.ThingsNobodyCaresAboutButMe))
+		if feed.bozo and not len(feed.entries):
 			logger.error('exception')
 			logger.error(feed.bozo_exception)
 			if 'status' in feed:
 				logger.info(feed.status)
 			self.success=False
 			self.last_error=str(feed.bozo_exception)
-			# now=timezone('utc').localize(datetime.utcnow())
-			# self.next_fetch=now + timedelta(minutes=self.update_interval / 2)
 			self.save()
 			return (feed.bozo_exception, None)
 		if feed.status==301:
@@ -352,10 +348,8 @@ class Article(models.Model):
 	def date_published_relative(self):
 		now=datetime.now(timezone('UTC'))
 		if now.date()==self.date_published.date():
-			# return self.date_published.strftime('%I:%M %p')
 			return self.date_published.astimezone(timezone('America/Los_Angeles')).strftime('%I:%M %p')
 		else:
-			# return self.date_published.strftime('%b %d, %Y')
 			return self.date_published.astimezone(timezone('America/Los_Angeles')).strftime('%b %d, %Y')
 
 	def __unicode__(self):

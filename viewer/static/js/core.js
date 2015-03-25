@@ -566,8 +566,7 @@
             Mark.globals.tmp = data;
             $('#modal .modal-body').html(Mark.up(window.templates.edit_feed_form, data));
             delete Mark.globals.tmp;
-            $('#modal_submit').off('click');
-            return $('#modal_submit').on('click', function(e) {
+            $('#modal_submit').off('click').on('click', function(e) {
               e.stopImmediatePropagation();
               $('#modal_submit').addClass('disabled');
               $('#modal .modal-body>.alert').addClass('hidden');
