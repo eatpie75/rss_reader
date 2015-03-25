@@ -314,3 +314,12 @@ def edit_feed(request, feed):
 			return finish({'form_errors':form.errors})
 	else:
 		return finish({'error':''})
+
+
+@login_required
+def delete_feed(request, feed):
+	if request.method=='POST':
+		feed=int(feed)
+		feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
+		feed.delete()
+	return JsonResponse({}, safe=False)

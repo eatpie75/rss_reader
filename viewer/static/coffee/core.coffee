@@ -371,6 +371,17 @@ class FeedManager
 					$("#modal input").parents('.form-group').removeClass('has-error')
 					@edit_feed_submit(feed)
 				)
+				$('#modal_delete').off('click').one('click', (e)=>
+					e.stopImmediatePropagation()
+					$('#modal_delete').one($.support.transition.end, (e)=>
+						$('#modal_delete').one($.support.transition.end, (e)=>
+							$('#modal_delete').one('click', (e)=>
+								$('#modal_delete').addClass('disabled')
+								@delete_feed(feed)
+							)
+						).text('Are you sure?').width(70)
+					).width(70).width(140)
+				)
 		})
 		$('#modal').modal()
 	edit_feed_submit:(feed)->
@@ -397,6 +408,21 @@ class FeedManager
 						$('#modal').modal('hide')
 						@change_feed(data.pk)
 					)
+		})
+	delete_feed:(feed)->
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/delete"
+			type:'POST'
+			dataType:'json'
+			headers:{'X-CSRFToken':window.CSRF_TOKEN}
+			success:(data)=>
+				@refresh_feed_list(()=>
+					$('#modal').on('hidden.bs.modal', (e)->
+						$('#modal').remove()
+					)
+					$('#modal').modal('hide')
+					@change_feed(0)
+				)
 		})
 	bind:(feeds=false, initial=false)->
 		_this=@
@@ -643,15 +669,17 @@ window.templates={
 				<label class='col-md-3 control-label' for='id_category'>Category</label>
 				<div class='col-md-11'>
 					<select class='form-control' id='id_category' name='category'>
-						<option value=''>---------</option>{{categories}}
+						<option value=''>---------</option>
+						{{categories}}
 						<option value='{{pk}}'{{if tmp.category|equals>`pk|number`}} selected{{/if}}>{{name}}</option>
-					{{/categories}}</select>
+						{{/categories}}
+					</select>
 				</div>
+			</div>
+			<div class='form-group'>
+				<button type='button' class='btn btn-danger pull-right' style='margin-right:10px;' id='modal_delete'>Delete Feed</button>
+			</div>
 		</form>
-		<div>
-		Last fetched:{{last_fetched|datetime}}<br>
-		Next fetch:{{next_fetch|datetime}}
-		</div>
 	"
 }
 
