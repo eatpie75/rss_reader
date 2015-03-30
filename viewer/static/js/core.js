@@ -16,6 +16,7 @@
       this.new_articles_available = false;
       this.categories = new CategoryList();
       this.feeds = new FeedList();
+      this.cache = {};
       this.refresh_categories((function(_this) {
         return function() {
           return _this.refresh_feed_list(function() {
@@ -72,6 +73,10 @@
       unread = el.children('small').text();
       mod = this.new_articles_available ? '!' : '';
       return document.title = "" + unread + mod + " " + (el.data('name'));
+    };
+
+    FeedManager.prototype.clear_cache = function() {
+      return this.cache = {};
     };
 
     FeedManager.prototype.get_current_feed = function() {
@@ -428,31 +433,52 @@
       return this.change_feed(this.get_current_feed());
     };
 
+    FeedManager.prototype.show_row = function(row) {
+      row.children('div.article-content').css('display', 'inline-block');
+      return row.addClass('active');
+    };
+
+    FeedManager.prototype.hide_row = function(row) {
+      row.removeClass('active');
+      return row.children('div.article-content').css('display', 'none').children('article-content-main').html('');
+    };
+
     FeedManager.prototype.toggle_article = function(title, e) {
-      var child, main_content, row;
+      var _this, child, main_content, row;
       if (e == null) {
         e = null;
       }
+      _this = this;
       row = title.parent();
       child = row.children('div.article-content');
       main_content = child.children('.article-content-main');
       if (row.hasClass('active')) {
-        row.removeClass('active');
-        child.css('display', 'none');
+        this.hide_row(row);
       } else {
         $('li.article-row.active').each(function() {
-          return $(this).removeClass('active').children('.article-content').css('display', 'none');
+          return _this.hide_row($(this));
         });
-        child.css('display', 'inline-block');
-        row.addClass('active');
-        if (!main_content.data('loaded')) {
+        if (main_content.data('loaded')) {
+          if (row.data('id') in this.cache) {
+            main_content.html(this.cache[row.data('id')]);
+            this.show_row(row);
+          } else {
+            main_content.data('loaded', false);
+            this.toggle_article(title);
+          }
+        } else {
+          this.show_row(row);
+          main_content.html(window.templates.loading_bar);
           $.ajax({
             url: window.AJAX_BASE + "feeds/article/" + (row.data('id')) + "/",
             dataType: 'json',
-            success: function(data) {
-              main_content.html(data.article__content);
-              return main_content.data('loaded', true);
-            }
+            success: (function(_this) {
+              return function(data) {
+                _this.cache[row.data('id')] = data.article__content;
+                main_content.html(data.article__content);
+                return main_content.data('loaded', true);
+              };
+            })(this)
           });
         }
         if (!row.hasClass('read')) {

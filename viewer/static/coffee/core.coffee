@@ -14,6 +14,7 @@ class FeedManager
 
 		@categories=new CategoryList()
 		@feeds=new FeedList()
+		@cache={}
 
 		@refresh_categories(()=>
 			@refresh_feed_list(()=>
@@ -50,6 +51,8 @@ class FeedManager
 		unread=el.children('small').text()
 		mod=if @new_articles_available then '!' else ''
 		document.title="#{unread}#{mod} #{el.data('name')}"
+	clear_cache:()->
+		@cache={}
 	get_current_feed:()->
 		hash=window.location.hash.slice(1)
 		if hash==''
@@ -272,24 +275,38 @@ class FeedManager
 		@filter_read=@filter_read^1
 		$('#filter-read').button('toggle')
 		@change_feed(@get_current_feed())
+	show_row:(row)->
+		row.children('div.article-content').css('display', 'inline-block')
+		row.addClass('active')
+	hide_row:(row)->
+		row.removeClass('active')
+		row.children('div.article-content').css('display', 'none').children('article-content-main').html('')
 	toggle_article:(title, e=null)->
+		_this=@
 		row=title.parent()
 		child=row.children('div.article-content')
 		main_content=child.children('.article-content-main')
 		if row.hasClass('active')
-			row.removeClass('active')
-			child.css('display', 'none')
+			@hide_row(row)
 		else
 			$('li.article-row.active').each(->
-				$(@).removeClass('active').children('.article-content').css('display', 'none')
+				_this.hide_row($(@))
 			)
-			child.css('display', 'inline-block')
-			row.addClass('active')
-			if not main_content.data('loaded')
+			if main_content.data('loaded')
+				if row.data('id') of @cache
+					main_content.html(@cache[row.data('id')])
+					@show_row(row)
+				else
+					main_content.data('loaded', false)
+					@toggle_article(title)
+			else
+				@show_row(row)
+				main_content.html(window.templates.loading_bar)
 				$.ajax({
 					url:"#{window.AJAX_BASE}feeds/article/#{row.data('id')}/"
 					dataType:'json'
-					success:(data)->
+					success:(data)=>
+						@cache[row.data('id')]=data.article__content
 						main_content.html(data.article__content)
 						main_content.data('loaded', true)
 				})
