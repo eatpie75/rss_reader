@@ -3,7 +3,6 @@ import os.path
 PROJECT_DIR=os.path.dirname(__file__)
 
 DEBUG = True
-TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
 	# ('Your Name', 'your_email@example.com'),
@@ -93,13 +92,50 @@ SECRET_KEY = 'fpd4#g2#o!_u67@5#&a)a)rqma&pbe4m@+y*_i@h-ah4qc-*0e'
 
 LOGIN_URL='login/'
 
-# List of callables that know how to import templates from various sources.
-TEMPLATE_LOADERS = (
-	'django_jinja.loaders.AppLoader',
-	'django_jinja.loaders.FileSystemLoader',
-)
+try:
+	from rssproject.settings_local import *
+except ImportError:
+	pass
 
-DEFAULT_JINJA2_TEMPLATE_EXTENSION = '.html.j2'
+# List of callables that know how to import templates from various sources.
+TEMPLATES = [
+	{
+		"BACKEND": "django_jinja.backend.Jinja2",
+		"APP_DIRS": True,
+		"OPTIONS": {
+			"constants": {
+				"AJAX_BASE":AJAX_BASE,
+				"STATIC_URL":STATIC_URL,
+			},
+			"context_processors": [
+				"django.contrib.auth.context_processors.auth",
+				"django.template.context_processors.debug",
+				"django.template.context_processors.i18n",
+				"django.template.context_processors.media",
+				"django.template.context_processors.static",
+				"django.template.context_processors.tz",
+				"django.contrib.messages.context_processors.messages",
+				"viewer.context_processors.ajax_base",
+			],
+		}
+	},
+	{
+		"BACKEND": "django.template.backends.django.DjangoTemplates",
+		"APP_DIRS": True,
+		"OPTIONS": {
+			"context_processors": [
+				"django.contrib.auth.context_processors.auth",
+				"django.template.context_processors.debug",
+				"django.template.context_processors.i18n",
+				"django.template.context_processors.media",
+				"django.template.context_processors.static",
+				"django.template.context_processors.tz",
+				"django.contrib.messages.context_processors.messages",
+				"viewer.context_processors.ajax_base",
+			],
+		}
+	},
+]
 
 MIDDLEWARE_CLASSES = (
 	'django.middleware.gzip.GZipMiddleware',
@@ -112,16 +148,6 @@ MIDDLEWARE_CLASSES = (
 	# 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-TEMPLATE_CONTEXT_PROCESSORS=(
-	"django.contrib.auth.context_processors.auth",
-	"django.core.context_processors.debug",
-	"django.core.context_processors.i18n",
-	"django.core.context_processors.media",
-	"django.core.context_processors.static",
-	"django.core.context_processors.tz",
-	"django.contrib.messages.context_processors.messages",
-	"viewer.context_processors.ajax_base",
-)
 
 ROOT_URLCONF = 'rssproject.urls'
 
@@ -129,12 +155,6 @@ ROOT_URLCONF = 'rssproject.urls'
 WSGI_APPLICATION = 'rssproject.wsgi.application'
 
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'
-
-TEMPLATE_DIRS = (
-	# Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
-	# Always use forward slashes, even on Windows.
-	# Don't forget to use absolute paths, not relative paths.
-)
 
 INSTALLED_APPS = (
 	'django.contrib.auth',
@@ -163,8 +183,3 @@ class SchedulerFilter(object):
 			return 0
 		else:
 			return 1
-
-try:
-	from rssproject.settings_local import *
-except ImportError:
-	pass

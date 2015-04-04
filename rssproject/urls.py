@@ -1,13 +1,14 @@
-from django.conf.urls import patterns, include, url
+from django.conf.urls import include, url
 from django.contrib import admin
+from django.contrib.auth.views import login
 
 admin.autodiscover()
 
-urlpatterns=patterns('',
+urlpatterns=[
 	# Examples:
 	url(r'^feeds/', include('feeds.urls')),
 	url(r'^$', include('viewer.urls')),
-	url(r'^login/$', 'django.contrib.auth.views.login', {'template_name':'login.html.j2'}),
+	url(r'^login/$', login, {'template_name':'login.jinja'}),
 	# url(r'^rss/', include('rss.foo.urls')),
 
 	# Uncomment the admin/doc line below to enable admin documentation:
@@ -15,4 +16,4 @@ urlpatterns=patterns('',
 
 	# Uncomment the next line to enable the admin:
 	url(r'^admin/', include(admin.site.urls)),
-)
+]

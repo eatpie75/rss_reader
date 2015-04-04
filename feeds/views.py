@@ -3,8 +3,6 @@ from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
-# from django.shortcuts import render_to_response
-# from django.template import RequestContext
 from pytz import timezone
 from .forms import AddFeedForm, EditFeedForm
 from .models import Feed, Article, UserArticleInfo, UserFeedSubscription, UserFeedCache, recalculate_user_cache, Category
@@ -25,7 +23,6 @@ def feed_info(request, feed):
 def new_articles(request, feed):
 	feed=int(feed)
 	newest_article=datetime.strptime(request.GET['newest_article'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone('utc'), microsecond=999999)
-	# print(newest_article, UserArticleInfo.objects.filter(user=request.user, read=False).latest('article__date_added').article.date_added)
 	data={}
 
 	if feed!=0:
@@ -35,21 +32,18 @@ def new_articles(request, feed):
 		data['new_articles']=UserArticleInfo.objects.filter(user=request.user, read=False, article__date_added__gt=newest_article).exists()
 
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
 def new_category_articles(request, category):
 	category=int(category)
 	newest_article=datetime.strptime(request.GET['newest_article'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone('utc'), microsecond=999999)
-	# print(newest_article, UserArticleInfo.objects.filter(user=request.user, read=False).latest('article__date_added').article.date_added)
 	data={}
 
 	category=Category.objects.get(pk=category)
 	data['new_articles']=UserArticleInfo.objects.filter(user=request.user, feed__category=category, read=False, article__date_added__gt=newest_article).exists()
 
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -98,7 +92,6 @@ def mark_unread(request, article):
 	else:
 		data=[]
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -124,22 +117,20 @@ def refresh_feed(request, feed):
 def view_article(request, article):
 	article=UserArticleInfo.objects.filter(user=request.user, article=article).select_related('article__content')
 	return JsonResponse(article.values('article__content')[0], safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(article.values('article__content')[0], cls=DjangoJSONEncoder)})
 
 
 @login_required
 def category_list(request):
-	user_categories=Category.objects.filter(user=request.user).select_related('user__pk')
+	user_categories=Category.objects.filter(user=request.user).select_related('user__id')
 	data=[]
 	for category in user_categories:
 		data.append(category.get_basic_info())
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
 def view_feed_list(request):
-	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed__feed__id', 'feed__title', 'feed__feed__success', 'feed__feed__last_error', 'category__id')
+	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed__id', 'feed__title', 'feed__success', 'feed__last_error', 'category__id')
 	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']
 	individual_unread_count={}
 	for feed in UserFeedCache.objects.filter(user=request.user).only('feed__id', 'unread'):
@@ -157,7 +148,6 @@ def view_feed_list(request):
 		})
 	data['feed_list']=feed_list
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'feed':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -187,7 +177,7 @@ def view_feed_articles(request, feed):
 	else:
 		limit=50
 
-	articles=articles.select_related('article', 'feed__feed__pk', 'feed__title', 'feed__feed__get_feed_image', 'user__pk')
+	articles=articles.select_related('article', 'feed__feed__id', 'feed__title', 'user__id')
 
 	tmp=[]
 	for user_article in articles[:limit]:
@@ -195,7 +185,6 @@ def view_feed_articles(request, feed):
 	data['articles']=tmp
 	data['unread']=max(data['unread'], 0)
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required
@@ -204,9 +193,7 @@ def view_category_articles(request, category):
 	data={}
 
 	category=Category.objects.get(pk=category)
-	# feeds=UserFeedSubscription.objects.filter(user=request.user, category=category)
 	articles=UserArticleInfo.objects.filter(user=request.user, feed__category=category)
-	# data['unread']=UserFeedCache.objects.filter(user=request.user, feed__in=feeds).only('unread')[0].unread
 	if request.GET.get('read', 'false')=='false':
 		articles=articles.filter(read=False)
 
@@ -226,9 +213,7 @@ def view_category_articles(request, category):
 	for user_article in articles[:limit]:
 		tmp.append(user_article.get_basic_info())
 	data['articles']=tmp
-	# data['unread']=max(data['unread'], 0)
 	return JsonResponse(data, safe=False)
-	# return render_to_response('blank.html.j2', {'a':json.dumps(data, cls=DjangoJSONEncoder)})
 
 
 @login_required

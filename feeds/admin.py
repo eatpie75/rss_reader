@@ -8,6 +8,7 @@ from pytz import timezone
 class FeedAdminForm(forms.ModelForm):
 	class Meta:
 		model=Feed
+		exclude=()
 		widgets={
 			'title': forms.TextInput(),
 		}
