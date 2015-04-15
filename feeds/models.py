@@ -399,6 +399,19 @@ class UserArticleInfo(models.Model):
 	read=models.BooleanField(db_index=True, default=False)
 	date_read=models.DateTimeField(blank=True, null=True)
 
+	def change_read_state(self, state=None):
+		if state is None:
+			state=not self.read
+		if self.read==state:
+			return UserFeedCache.objects.get(user=self.user, feed=self.feed).unread
+		self.read=False
+		self.date_read=None
+		self.save()
+		if self.read:
+			return UserFeedCache.objects.get(user=self.user, feed=self.feed).add()
+		else:
+			return UserFeedCache.objects.get(user=self.user, feed=self.feed).sub()
+
 	def get_basic_info(self):
 		return {
 			'pk':self.pk,

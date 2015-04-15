@@ -677,12 +677,6 @@ window.templates={
 				</div>
 			</div>
 			<div class='form-group'>
-				<label class='col-md-3 control-label' for='id_site_url'>Site URL</label>
-				<div class='col-md-11'>
-					<input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url|sanitize}}'>
-				</div>
-			</div>
-			<div class='form-group'>
 				<label class='col-md-3 control-label' for='id_category'>Category</label>
 				<div class='col-md-11'>
 					<select class='form-control' id='id_category' name='category'>

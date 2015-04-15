@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from pytz import timezone
 from .forms import AddFeedForm, EditFeedForm
 from .models import Feed, Article, UserArticleInfo, UserFeedSubscription, UserFeedCache, recalculate_user_cache, Category
@@ -67,10 +68,7 @@ def mark_read(request, article):
 	article=int(article)
 	article=UserArticleInfo.objects.get(user=request.user, article=article)
 	if not article.read:
-		article.read=True
-		article.date_read=timezone('utc').localize(datetime.utcnow())
-		article.save()
-		feed_unread=UserFeedCache.objects.get(user=request.user, feed=article.feed).sub()
+		feed_unread=article.change_read_state(True)
 		unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 		data=[{'feed':0, 'unread':unread_count}, {'feed':article.feed.pk, 'unread':feed_unread}]
 	else:
@@ -83,9 +81,7 @@ def mark_unread(request, article):
 	article=int(article)
 	article=UserArticleInfo.objects.get(user=request.user, article=article)
 	if article.read:
-		article.read=False
-		article.date_read=None
-		article.save()
+		article.change_read_state(False)
 		feed_unread=UserFeedCache.objects.get(user=request.user, feed=article.feed).add()
 		unread_count=UserArticleInfo.objects.filter(user=request.user, read=False).count()
 		data=[{'feed':0, 'unread':unread_count}, {'feed':article.feed.pk, 'unread':feed_unread}]
@@ -216,95 +212,68 @@ def view_category_articles(request, category):
 	return JsonResponse(data, safe=False)
 
 
+@require_POST
 @login_required
 def add_feed(request):
-	if request.method=='POST':
-		form=AddFeedForm(request.POST)
-		if form.is_valid():
-			feed=feed_utils.check_feed(form.cleaned_data['url'])
-			if feed[0] is not None:
-				# data={'error':str(feed[0])}
-				data={'error':'Error fetching feed.'}
-			else:
-				if type(feed[1])!=int:
-					feed=Feed(feed_url=form.cleaned_data['url'])
-					feed.save()
-					logger.info('Created new feed: {}'.format(feed.feed_url))
-				elif type(feed[1])==int:
-					feed=Feed.objects.get(pk=feed[1])
-					if feed.enabled is False:
-						feed.enabled=True
-					if feed.needs_update:
-						feed.update()
-				user_feed=UserFeedSubscription(user=request.user, feed=feed, title=feed.title)
-				user_feed.save()
-				tmp=[]
-				for article in Article.objects.filter(feed=feed.pk).only('pk')[:25]:
-					tmp.append(UserArticleInfo(user=request.user, feed=user_feed, article=article))
-				UserArticleInfo.objects.bulk_create(tmp)
-				del tmp
-				UserFeedCache(user=request.user, feed=user_feed).recalculate()
-
-				data=user_feed.get_basic_info()
-		else:
-			data={'error':'Input a valid url.'}
+	form=AddFeedForm(request.POST)
+	if form.is_valid():
+		url=form.cleaned_data['url']
+		try:
+			user_feed=feed_utils.add_feed(request.user, url)
+			data=user_feed.get_basic_info()
+		except StandardError as e:
+			data={'error':e.args}
 	else:
-		data={'error':''}
+		data={'error':'Input a valid url.'}
 	return JsonResponse(data, safe=False)
 
 
+@require_POST
 @login_required
 def edit_feed(request, feed):
-	def finish(data):
-		return JsonResponse(data, safe=False)
 	feed=int(feed)
-	if request.method=='POST':
-		form=EditFeedForm(request.POST)
-		user_feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
-		feed=Feed.objects.get(pk=user_feed.feed.pk)
-		changes=False
-		if form.is_valid():
-			if form.cleaned_data['feed_url']!=user_feed.feed.feed_url:
-				check=feed_utils.check_feed(form.cleaned_data['feed_url'], validity_check=False)
-				if check[1] is not None and check[1]!=feed.pk:
-					new_feed=Feed.objects.get(pk=check[1])
-					tmp=[]
-					for article in Article.objects.filter(feed=new_feed)[:10]:
-						tmp.append(UserArticleInfo(user=request.user, feed=user_feed, article=article))
-					UserArticleInfo.objects.bulk_create(tmp)
-					del tmp
-					user_feed.feed=new_feed
-					user_feed.save()
-				elif check[1]!=user_feed.feed.pk:
-					valid=feed_utils.check_feed(form.cleaned_data['feed_url'], existence_check=False)
-					if valid[0] is not None:
-						return finish({'error':'Error fetching feed.'})
-					else:
-						feed.feed_url=form.cleaned_data['feed_url']
-						changes=True
-			if form.cleaned_data['site_url']!=feed.site_url:
-				feed.site_url=form.cleaned_data['site_url']
+	form=EditFeedForm(request.POST)
+	user_feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
+	feed=Feed.objects.get(pk=user_feed.feed.pk)
+	changes=False
+	if not form.is_valid():
+		return JsonResponse({'form_errors':form.errors})
+	if form.cleaned_data['feed_url']!=user_feed.feed.feed_url:
+		url=form.cleaned_data['feed_url']
+		check=feed_utils.check_feed(url, validity_check=False)
+		if check[1] is not None and check[1]!=feed.pk:
+			new_feed=Feed.objects.get(pk=check[1])
+			tmp=[]
+			for article in Article.objects.filter(feed=new_feed)[:10]:
+				tmp.append(UserArticleInfo(user=request.user, feed=user_feed, article=article))
+			UserArticleInfo.objects.bulk_create(tmp)
+			del tmp
+			user_feed.feed=new_feed
+			user_feed.save()
+		elif check[1]!=user_feed.feed.pk:
+			valid=feed_utils.check_feed(url, existence_check=False)
+			if valid[0] is not None:
+				data={'error':'Error fetching feed.'}
+			else:
+				feed.feed_url=url
 				changes=True
-			if form.cleaned_data['title']!=user_feed.title:
-				user_feed.title=form.cleaned_data['title']
-				user_feed.save()
-			if form.cleaned_data['category']!=user_feed.category:
-				user_feed.category=form.cleaned_data['category']
-				user_feed.save()
-			if changes:
-				feed.save()
-				feed.update()
-			return finish(user_feed.get_basic_info())
-		else:
-			return finish({'form_errors':form.errors})
-	else:
-		return finish({'error':''})
+	if form.cleaned_data['title']!=user_feed.title:
+		user_feed.title=form.cleaned_data['title']
+		user_feed.save()
+	if form.cleaned_data['category']!=user_feed.category:
+		user_feed.category=form.cleaned_data['category']
+		user_feed.save()
+	if changes:
+		feed.save()
+		feed.update()
+	data=user_feed.get_basic_info()
+	return JsonResponse(data, safe=False)
 
 
+@require_POST
 @login_required
 def delete_feed(request, feed):
-	if request.method=='POST':
-		feed=int(feed)
-		feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
-		feed.delete()
+	feed=int(feed)
+	feed=UserFeedSubscription.objects.get(user=request.user, pk=feed)
+	feed.delete()
 	return JsonResponse({}, safe=False)
