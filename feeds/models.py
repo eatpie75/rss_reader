@@ -404,8 +404,11 @@ class UserArticleInfo(models.Model):
 			state=not self.read
 		if self.read==state:
 			return UserFeedCache.objects.get(user=self.user, feed=self.feed).unread
-		self.read=False
-		self.date_read=None
+		self.read=state
+		if self.read:
+			self.date_read=timezone('utc').localize(datetime.utcnow())
+		else:
+			self.date_read=None
 		self.save()
 		if self.read:
 			return UserFeedCache.objects.get(user=self.user, feed=self.feed).add()
@@ -455,12 +458,12 @@ class UserFeedCache(models.Model):
 	def add(self, value=1):
 		self.unread=F('unread') + value
 		self.save()
-		return UserFeedCache.objects.get(pk=self.pk).unread
+		return UserFeedCache.objects.get(id=self.id).unread
 
 	def sub(self, value=1):
 		self.unread=F('unread') - value
 		self.save()
-		return UserFeedCache.objects.get(pk=self.pk).unread
+		return UserFeedCache.objects.get(id=self.id).unread
 
 	class Meta:
 		index_together=[['user', 'feed'],]
