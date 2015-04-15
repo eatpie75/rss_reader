@@ -203,7 +203,7 @@ def view_category_articles(request, category):
 	else:
 		limit=50
 
-	articles=articles.select_related('article', 'feed__feed__pk', 'feed__title', 'feed__feed__get_feed_image', 'user__pk')
+	articles=articles.select_related('article', 'feed__feed__id', 'feed__title', 'user__id')
 
 	tmp=[]
 	for user_article in articles[:limit]:
