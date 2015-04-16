@@ -83,48 +83,30 @@ class FeedManager
 			$('.feed-list>ul').scrollTop(scroll+(offset-ih)+14)
 		else if offset<0
 			$('.feed-list>ul').scrollTop(scroll+offset)
-		if not is_category
-			$.ajax({
-				url:"#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
-				data:'read' if not @filter_read
-				dataType:'json'
-				success:(data)=>
-					@reset_last_article()
-					@reset_newest_article()
-					@update_last_article(data.articles)
-					@update_newest_article(data.articles)
-					@current_feed=String(feed)
-					@current_feed_is_category=feed[0]=='c'
-					@set_current_feed()
-					$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
-					@bind()
-					$('.article-list').scrollTop(0)
-					if data.length==50
-						@more_articles_to_load=true
-					@update_unread(data.unread, feed)
-					@busy=false
-			})
+		if is_category
+			url="#{window.AJAX_BASE}feeds/category/#{feed.slice(1)}/articles"
 		else
-			$.ajax({
-				url:"#{window.AJAX_BASE}feeds/category/#{feed.slice(1)}/articles"
-				data:'read' if not @filter_read
-				dataType:'json'
-				success:(data)=>
-					@reset_last_article()
-					@reset_newest_article()
-					@update_last_article(data.articles)
-					@update_newest_article(data.articles)
-					@current_feed=feed
-					@current_feed_is_category=feed[0]=='c'
-					@set_current_feed(true)
-					$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
-					@bind()
-					$('.article-list').scrollTop(0)
-					if data.length==50
-						@more_articles_to_load=true
-					@update_unread(data.unread, feed)
-					@busy=false
-			})
+			url="#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
+		$.ajax({
+			url:url
+			data:'read' if not @filter_read
+			dataType:'json'
+			success:(data)=>
+				@reset_last_article()
+				@reset_newest_article()
+				@update_last_article(data.articles)
+				@update_newest_article(data.articles)
+				@current_feed=String(feed)
+				@current_feed_is_category=feed[0]=='c'
+				@set_current_feed()
+				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
+				@bind()
+				$('.article-list').scrollTop(0)
+				if data.length==50
+					@more_articles_to_load=true
+				@update_unread(data.unread, feed)
+				@busy=false
+		})
 	load_more_articles:()->
 		feed=@current_feed
 		if not @more_articles_to_load
