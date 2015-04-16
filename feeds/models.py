@@ -145,54 +145,9 @@ class Feed(models.Model):
 				return i
 
 		for entry in feed.entries:
-			if 'id' in entry:
-				entry_id=entry.id
-			else:
-				entry_id=entry.link
-			now=datetime.utcnow()
-			if Article.objects.filter(feed=self, guid=entry_id).exists():
-				Article.objects.filter(feed=self, guid=entry_id).update(date_last_seen=timezone('utc').localize(now))
-				continue
-			i+=1
-			if 'published_parsed' in entry and entry.published_parsed is not None:
-				date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.published_parsed)))
-				if 'updated_parsed' in entry:
-					update_date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
-				else:
-					update_date=date
-			elif 'updated_parsed' in entry:
-				date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
-				update_date=date
-			else:
-				date=now
-				update_date=now
-			article=Article(
-				feed=self,
-				guid=entry_id,
-				title=unicode(entry.title[:500]),
-				url=entry.link,
-				date_added=timezone('utc').localize(now),
-				date_published=timezone('utc').localize(date),
-				date_updated=timezone('utc').localize(update_date),
-				date_last_seen=timezone('utc').localize(now)
-			)
-			if 'content' in entry:
-				content=unicode(entry.content[0]['value'])
-				description=unicode(entry.description[:500])
-			elif 'description' in entry:
-				content=unicode(entry.description)
-				description=unicode(entry.description[:500])
-			else:
-				content=unicode(entry.title)
-				description=unicode(entry.title[:500])
-			content=BeautifulSoup(content, 'html.parser')
-			description=BeautifulSoup(description, 'html.parser')
-			for tracking_img in content.find_all('img', height=1, width=1):
-				tracking_img.decompose()
-			article.content=unicode(content)
-			article.description=unicode(description)
-			article.save()
-			article.create_user_info()
+			new_article=add_article(self, entry)
+			if new_article:
+				i+=1
 		logger.info('Added {} new article(s)'.format(i))
 		now=timezone('utc').localize(datetime.utcnow())
 		self.last_fetched=now
@@ -204,12 +159,12 @@ class Feed(models.Model):
 		self.save()
 
 		if self.needs_statistics_update:
-			logger.info('Updating statistics')
 			self.update_statistics()
 		# self.purge()
 		return i
 
 	def update_statistics(self):
+		logger.info('Updating statistics for {}'.format(self.title))
 		data={}
 		i=0
 		for article in Article.objects.filter(feed=self).only('date_published'):
@@ -227,6 +182,7 @@ class Feed(models.Model):
 		self.statistics=data
 		self.statistics_updated=timezone('utc').localize(datetime.utcnow())
 		self.save()
+		logger.info('Updated statistics for {}'.format(self.title))
 
 	def get_next_fetch(self):
 		now=timezone('utc').localize(datetime.utcnow())
@@ -525,6 +481,59 @@ def delete_subscription(sender, **kwargs):
 	UserFeedCache.objects.filter(user=instance.user, feed__feed=instance.feed).delete()
 	if UserFeedSubscription.objects.filter(feed=instance.feed).count() - 1==0:
 		Feed.objects.filter(pk=instance.feed_id).update(enabled=False)
+
+
+def add_article(feed, entry):
+	if 'id' in entry:
+		entry_id=entry.id
+	else:
+		entry_id=entry.link
+	now=datetime.utcnow()
+	if Article.objects.filter(feed=feed, guid=entry_id).exists():
+		Article.objects.filter(feed=feed, guid=entry_id).update(date_last_seen=timezone('utc').localize(now))
+		return False
+	if 'published_parsed' in entry and entry.published_parsed is not None:
+		date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.published_parsed)))
+		if 'updated_parsed' in entry:
+			update_date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
+		else:
+			update_date=date
+	elif 'updated_parsed' in entry:
+		date=datetime.fromtimestamp(mktime(fix_timestamp_dst(entry.updated_parsed)))
+		update_date=date
+	else:
+		date=now
+		update_date=now
+	article=Article(
+		feed=feed,
+		guid=entry_id,
+		title=unicode(entry.title[:500]),
+		url=entry.link,
+		date_added=timezone('utc').localize(now),
+		date_published=timezone('utc').localize(date),
+		date_updated=timezone('utc').localize(update_date),
+		date_last_seen=timezone('utc').localize(now)
+	)
+	if 'content' in entry:
+		content=unicode(entry.content[0]['value'])
+		description=unicode(entry.description[:500])
+	elif 'description' in entry:
+		content=unicode(entry.description)
+		description=unicode(entry.description[:500])
+	else:
+		content=unicode(entry.title)
+		description=unicode(entry.title[:500])
+	if 'author' in entry:
+		article.author=entry.author
+	content=BeautifulSoup(content, 'html.parser')
+	description=BeautifulSoup(description, 'html.parser')
+	for tracking_img in content.find_all('img', height=1, width=1):
+		tracking_img.decompose()
+	article.content=unicode(content)
+	article.description=unicode(description)
+	article.save()
+	article.create_user_info()
+	return True
 
 
 def fix_timestamp_dst(tt):
