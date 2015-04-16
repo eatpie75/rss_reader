@@ -106,7 +106,7 @@
     };
 
     FeedManager.prototype.change_feed = function(feed, is_category) {
-      var ih, offset, scroll;
+      var ih, offset, scroll, url;
       if (is_category == null) {
         is_category = false;
       }
@@ -123,61 +123,37 @@
       } else if (offset < 0) {
         $('.feed-list>ul').scrollTop(scroll + offset);
       }
-      if (!is_category) {
-        return $.ajax({
-          url: window.AJAX_BASE + "feeds/feeds/" + feed + "/articles",
-          data: !this.filter_read ? 'read' : void 0,
-          dataType: 'json',
-          success: (function(_this) {
-            return function(data) {
-              _this.reset_last_article();
-              _this.reset_newest_article();
-              _this.update_last_article(data.articles);
-              _this.update_newest_article(data.articles);
-              _this.current_feed = String(feed);
-              _this.current_feed_is_category = feed[0] === 'c';
-              _this.set_current_feed();
-              $('.article-list>ul').html(Mark.up(window.templates['articles'], {
-                'articles': data.articles
-              }));
-              _this.bind();
-              $('.article-list').scrollTop(0);
-              if (data.length === 50) {
-                _this.more_articles_to_load = true;
-              }
-              _this.update_unread(data.unread, feed);
-              return _this.busy = false;
-            };
-          })(this)
-        });
+      if (is_category) {
+        url = window.AJAX_BASE + "feeds/category/" + (feed.slice(1)) + "/articles";
       } else {
-        return $.ajax({
-          url: window.AJAX_BASE + "feeds/category/" + (feed.slice(1)) + "/articles",
-          data: !this.filter_read ? 'read' : void 0,
-          dataType: 'json',
-          success: (function(_this) {
-            return function(data) {
-              _this.reset_last_article();
-              _this.reset_newest_article();
-              _this.update_last_article(data.articles);
-              _this.update_newest_article(data.articles);
-              _this.current_feed = feed;
-              _this.current_feed_is_category = feed[0] === 'c';
-              _this.set_current_feed(true);
-              $('.article-list>ul').html(Mark.up(window.templates['articles'], {
-                'articles': data.articles
-              }));
-              _this.bind();
-              $('.article-list').scrollTop(0);
-              if (data.length === 50) {
-                _this.more_articles_to_load = true;
-              }
-              _this.update_unread(data.unread, feed);
-              return _this.busy = false;
-            };
-          })(this)
-        });
+        url = window.AJAX_BASE + "feeds/feeds/" + feed + "/articles";
       }
+      return $.ajax({
+        url: url,
+        data: !this.filter_read ? 'read' : void 0,
+        dataType: 'json',
+        success: (function(_this) {
+          return function(data) {
+            _this.reset_last_article();
+            _this.reset_newest_article();
+            _this.update_last_article(data.articles);
+            _this.update_newest_article(data.articles);
+            _this.current_feed = String(feed);
+            _this.current_feed_is_category = feed[0] === 'c';
+            _this.set_current_feed();
+            $('.article-list>ul').html(Mark.up(window.templates['articles'], {
+              'articles': data.articles
+            }));
+            _this.bind();
+            $('.article-list').scrollTop(0);
+            if (data.length === 50) {
+              _this.more_articles_to_load = true;
+            }
+            _this.update_unread(data.unread, feed);
+            return _this.busy = false;
+          };
+        })(this)
+      });
     };
 
     FeedManager.prototype.load_more_articles = function() {
@@ -385,6 +361,9 @@
         ref = this.feeds.get_by_category(category.pk);
         for (j = 0, len1 = ref.length; j < len1; j++) {
           feed = ref[j];
+          if (!category.expanded) {
+            feed.hidden = true;
+          }
           render += Mark.up(window.template_includes.feed_row, feed);
         }
       }
@@ -398,33 +377,42 @@
     };
 
     FeedManager.prototype.toggle_category = function(id) {
-      var feed, row;
+      var feed, new_expanded_state, row;
       row = $("#category-c" + id);
       if (row.hasClass('open')) {
+        new_expanded_state = false;
         feed = row.next();
         while (true) {
           if (feed.data('category') !== id) {
             break;
           }
-          feed.css('display', 'none');
+          feed.addClass('hidden');
           feed = feed.next();
         }
         row.find('.folder').removeClass('glyphicon-folder-open').addClass('glyphicon-folder-close');
         row.find('.marker').removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down');
-        return row.removeClass('open');
+        row.removeClass('open');
       } else {
+        new_expanded_state = true;
         feed = row.next();
         while (true) {
           if (feed.data('category') !== id) {
             break;
           }
-          feed.css('display', 'list-item');
+          feed.removeClass('hidden');
           feed = feed.next();
         }
         row.find('.folder').removeClass('glyphicon-folder-close').addClass('glyphicon-folder-open');
         row.find('.marker').removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up');
-        return row.addClass('open');
+        row.addClass('open');
       }
+      return $.ajax({
+        url: window.AJAX_BASE + "feeds/category/" + id + "/state",
+        data: {
+          'state': new_expanded_state
+        },
+        dataType: 'json'
+      });
     };
 
     FeedManager.prototype.toggle_filter_read = function() {
@@ -864,6 +852,7 @@
       this.user = data.user;
       this.name = data.category;
       this.parent = data.parent;
+      this.expanded = data.expanded;
     }
 
     return Category;
@@ -911,8 +900,8 @@
 
   window.template_includes = {
     'all_feed_row': "<li class='feed-row' id='feed-0' data-id='0' data-name='All Items'> Unread Items <small>({{total_unread_count}})</small> </li>",
-    'feed_row': "<li class='feed-row{{if not success}} error{{/if}}{{if category}} indent{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' {{if category}}data-category='{{category}}'{{/if}} data-name='{{title|sanitize}}'{{if not success}} title='{{last_error|sanitize}}'{{/if}}> <span>{{title|escape}}</span> <small>({{unread}})</small> <div class='marker glyphicon glyphicon-wrench'></div> </li>",
-    'category_row': "<li class='category-row open' id='category-c{{pk}}' data-id='{{pk}}' data-name='{{name|sanitize}}'> <div class='folder glyphicon glyphicon-folder-open'></div> <span>{{name|escape}}</span> <small>({{unread}})</small> <div class='marker glyphicon glyphicon-chevron-up'></div> </li>"
+    'feed_row': "<li class='feed-row{{if not success}} error{{/if}}{{if category}} indent{{/if}}{{if hidden}} hidden{{/if}}' id='feed-{{pk}}' data-id='{{pk}}' {{if category}}data-category='{{category}}'{{/if}} data-name='{{title|sanitize}}'{{if not success}} title='{{last_error|sanitize}}'{{/if}}> <span>{{title|escape}}</span> <small>({{unread}})</small> <div class='marker glyphicon glyphicon-wrench'></div> </li>",
+    'category_row': "<li class='category-row {{if expanded}}open{{/if}}' id='category-c{{pk}}' data-id='{{pk}}' data-name='{{name|sanitize}}'> <div class='folder glyphicon glyphicon-folder-{{if expanded}}open{{else}}close{{/if}}'></div> <span>{{name|escape}}</span> <small>({{unread}})</small> <div class='marker glyphicon glyphicon-chevron-{{if expanded}}up{{else}}down{{/if}}'></div> </li>"
   };
 
   Mark.includes.all_feed_row = window.template_includes['all_feed_row'];
@@ -927,7 +916,7 @@
     'articles': "{{articles}} <li class='article-row{{if read}} read{{/if}}' id='article-{{article.pk}}' data-id='{{article.pk}}'> <div class='article-row-title'> <img class='feed-icon' src='{{feed.image}}' title='{{feed.title|sanitize}}' alt='Feed Icon'> <div class='article-feed-name'>{{feed.title|escape}}</div> <div class='article-title'>{{article.title|escape}}</div> <div class='article-date' title='Published: {{article.date_published}} Discovered: {{article.date_added}}'>{{article.date_published_relative}}</div> </div> <div class='article-content panel panel-default'> <div class='article-content-title panel-heading'> <h2><a href='{{article.url|sanitize}}' target='_blank'>{{article.title|escape}}</a></h2> </div> <div class='article-content-main panel-body' data-loaded='false'> </div> <div class='article-content-footer panel-footer'> <div><span class='glyphicon glyphicon-envelope'></span> <span>{{if read}}Mark unread{{else}}Mark read{{/if}}</span></div> </div> </div> </li> {{/articles}}",
     'modal': "<div class='modal fade' id='modal' tabindex='-1' role='dialog' data-for='{{for}}'> <div class='modal-dialog'> <div class='modal-content'> <div class='modal-header'> <button type='button' class='close' data-dismiss='modal'>&times;</button> <h4 class='modal-title' id='modal_label'>{{title|escape}}</h4> </div> <div class='modal-body'></div> <div class='modal-footer'> <button type='button' class='btn btn-primary' id='modal_submit'>{{modal_submit_text}}</button> </div> </div> </div> </div>",
     'add_feed_form': "<div class='alert alert-danger hidden'></div> <form class='form-horizontal' role='form'> <div class='form-group'> <label class='col-md-2 control-label' for='id_url'>Feed URL</label> <div class='col-md-12'> <input class='form-control' id='id_url' name='url' type='url'> </div> </div> </form>",
-    'edit_feed_form': "<div class='alert alert-danger hidden'></div> <form id='modal-form' class='form-horizontal' role='form'> <div class='form-group'> <label class='col-md-3 control-label' for='id_title'>Feed Title</label> <div class='col-md-11'> <input class='form-control' id='id_title' name='title' value='{{title|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label> <div class='col-md-11'> <input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_site_url'>Site URL</label> <div class='col-md-11'> <input class='form-control' id='id_site_url' name='site_url' type='url' value='{{site_url|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_category'>Category</label> <div class='col-md-11'> <select class='form-control' id='id_category' name='category'> <option value=''>---------</option> {{categories}} <option value='{{pk}}'{{if tmp.category|equals>`pk|number`}} selected{{/if}}>{{name}}</option> {{/categories}} </select> </div> </div> <div class='form-group'> <button type='button' class='btn btn-danger pull-right' style='margin-right:10px;' id='modal_delete'>Delete Feed</button> </div> </form>"
+    'edit_feed_form': "<div class='alert alert-danger hidden'></div> <form id='modal-form' class='form-horizontal' role='form'> <div class='form-group'> <label class='col-md-3 control-label' for='id_title'>Feed Title</label> <div class='col-md-11'> <input class='form-control' id='id_title' name='title' value='{{title|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_feed_url'>Feed URL</label> <div class='col-md-11'> <input class='form-control' id='id_feed_url' name='feed_url' type='url' value='{{feed_url|sanitize}}'> </div> </div> <div class='form-group'> <label class='col-md-3 control-label' for='id_category'>Category</label> <div class='col-md-11'> <select class='form-control' id='id_category' name='category'> <option value=''>---------</option> {{categories}} <option value='{{pk}}'{{if tmp.category|equals>`pk|number`}} selected{{/if}}>{{name}}</option> {{/categories}} </select> </div> </div> <div class='form-group'> <button type='button' class='btn btn-danger pull-right' style='margin-right:10px;' id='modal_delete'>Delete Feed</button> </div> </form>"
   };
 
   check_for_new_articles = function() {

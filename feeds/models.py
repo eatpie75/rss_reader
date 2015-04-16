@@ -430,6 +430,16 @@ class Category(models.Model):
 	user=models.ForeignKey(User)
 	name=models.CharField(max_length=50)
 	parent=models.ForeignKey('Category', blank=True, null=True)
+	expanded=models.BooleanField(default=True)
+
+	def change_expanded_state(self, state=None):
+		if state is None:
+			state=not self.expanded
+		if self.expanded==state:
+			return self.expanded
+		self.expanded=state
+		self.save()
+		return self.expanded
 
 	def get_basic_info(self):
 		return {
@@ -437,6 +447,7 @@ class Category(models.Model):
 			'user':self.user.pk,
 			'name':self.name,
 			'parent':self.parent,
+			'expanded':self.expanded,
 		}
 
 	def __unicode__(self):

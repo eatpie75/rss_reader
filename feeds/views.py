@@ -125,6 +125,20 @@ def category_list(request):
 
 
 @login_required
+def category_change_state(request, category):
+	category=int(category)
+	category=Category.objects.get(pk=category)
+	if 'state' in request.GET:
+		if request.GET['state']=='true':
+			new_state=True
+		else:new_state=False
+	else:
+		new_state=None
+	state=category.change_expanded_state(new_state)
+	return JsonResponse(state, safe=False)
+
+
+@login_required
 def view_feed_list(request):
 	user_feeds=UserFeedSubscription.objects.filter(user=request.user).select_related('feed__id', 'feed__title', 'feed__success', 'feed__last_error', 'category__id')
 	total_unread_count=UserFeedCache.objects.filter(user=request.user).aggregate(Sum('unread'))['unread__sum']

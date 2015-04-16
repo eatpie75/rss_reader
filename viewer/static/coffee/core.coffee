@@ -225,6 +225,8 @@ class FeedManager
 			category.unread=@feeds.get_unread_for_category(category.pk)
 			render+=Mark.up(window.template_includes.category_row, category)
 			for feed in @feeds.get_by_category(category.pk)
+				if not category.expanded
+					feed.hidden=true
 				render+=Mark.up(window.template_includes.feed_row, feed)
 		for feed in @feeds.get_all_without_category()
 			render+=Mark.up(window.template_includes.feed_row, feed)
@@ -234,25 +236,32 @@ class FeedManager
 	toggle_category:(id)->
 		row=$("#category-c#{id}")
 		if row.hasClass('open')
+			new_expanded_state=false
 			feed=row.next()
 			while true
 				if feed.data('category')!=id
 					break
-				feed.css('display', 'none')
+				feed.addClass('hidden')
 				feed=feed.next()
 			row.find('.folder').removeClass('glyphicon-folder-open').addClass('glyphicon-folder-close')
 			row.find('.marker').removeClass('glyphicon-chevron-up').addClass('glyphicon-chevron-down')
 			row.removeClass('open')
 		else
+			new_expanded_state=true
 			feed=row.next()
 			while true
 				if feed.data('category')!=id
 					break
-				feed.css('display', 'list-item')
+				feed.removeClass('hidden')
 				feed=feed.next()
 			row.find('.folder').removeClass('glyphicon-folder-close').addClass('glyphicon-folder-open')
 			row.find('.marker').removeClass('glyphicon-chevron-down').addClass('glyphicon-chevron-up')
 			row.addClass('open')
+		$.ajax({
+			url:"#{window.AJAX_BASE}feeds/category/#{id}/state"
+			data:{'state':new_expanded_state}
+			dataType:'json'
+		})
 	toggle_filter_read:()->
 		@filter_read=@filter_read^1
 		$('#filter-read').button('toggle')
@@ -547,6 +556,7 @@ class Category
 		@user=data.user
 		@name=data.category
 		@parent=data.parent
+		@expanded=data.expanded
 
 class CategoryList
 	constructor:()->
@@ -573,16 +583,16 @@ window.template_includes={
 			Unread Items <small>({{total_unread_count}})</small>
 		</li>"
 	'feed_row':"
-		<li class='feed-row{{if not success}} error{{/if}}{{if category}} indent{{/if}}' id='feed-{{pk}}' data-id='{{pk}}'
+		<li class='feed-row{{if not success}} error{{/if}}{{if category}} indent{{/if}}{{if hidden}} hidden{{/if}}' id='feed-{{pk}}' data-id='{{pk}}'
 		 {{if category}}data-category='{{category}}'{{/if}} data-name='{{title|sanitize}}'{{if not success}} title='{{last_error|sanitize}}'{{/if}}>
 			<span>{{title|escape}}</span> <small>({{unread}})</small>
 			<div class='marker glyphicon glyphicon-wrench'></div>
 		</li>",
 	'category_row':"
-		<li class='category-row open' id='category-c{{pk}}' data-id='{{pk}}' data-name='{{name|sanitize}}'>
-			<div class='folder glyphicon glyphicon-folder-open'></div>
+		<li class='category-row {{if expanded}}open{{/if}}' id='category-c{{pk}}' data-id='{{pk}}' data-name='{{name|sanitize}}'>
+			<div class='folder glyphicon glyphicon-folder-{{if expanded}}open{{else}}close{{/if}}'></div>
 			<span>{{name|escape}}</span> <small>({{unread}})</small>
-			<div class='marker glyphicon glyphicon-chevron-up'></div>
+			<div class='marker glyphicon glyphicon-chevron-{{if expanded}}up{{else}}down{{/if}}'></div>
 		</li>"
 }
 

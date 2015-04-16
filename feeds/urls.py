@@ -1,6 +1,7 @@
 from django.conf.urls import url
 from .views import add_feed, view_feed_list, feed_info, new_articles, edit_feed, delete_feed, refresh_feed, mark_all_read
 from .views import view_feed_articles, mark_read, mark_unread, view_article, category_list, new_category_articles, view_category_articles
+from .views import category_change_state
 
 urlpatterns=[
 	# url(r'^(?P<feed>\d{1,12})/unread$', 'feed_unread', name='feed_unread'),
@@ -20,4 +21,5 @@ urlpatterns=[
 	url(r'^category/list/$', category_list, name='category_list'),
 	url(r'^category/(?P<category>\d{1,12})/new$', new_category_articles, name='new_category_articles'),
 	url(r'^category/(?P<category>\d{1,12})/articles$', view_category_articles, name='view_category_articles'),
+	url(r'^category/(?P<category>\d{1,12})/state$', category_change_state, name='category_change_state'),
 ]
