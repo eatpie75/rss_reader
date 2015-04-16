@@ -1,0 +1,9 @@
+apscheduler
+BeautifulSoup4
+django>=1.8,<1.9
+django_jinja
+jsonfield
+pillow
+psycopg2
+pytz
+requests

@@ -1,0 +1,4 @@
+ignore-paths:
+    - feeds/feedparser.py
+    - feeds/migrations
+    - feeds/south_migrations
