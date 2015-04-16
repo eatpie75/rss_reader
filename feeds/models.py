@@ -411,9 +411,9 @@ class UserArticleInfo(models.Model):
 			self.date_read=None
 		self.save()
 		if self.read:
-			return UserFeedCache.objects.get(user=self.user, feed=self.feed).add()
-		else:
 			return UserFeedCache.objects.get(user=self.user, feed=self.feed).sub()
+		else:
+			return UserFeedCache.objects.get(user=self.user, feed=self.feed).add()
 
 	def get_basic_info(self):
 		return {
