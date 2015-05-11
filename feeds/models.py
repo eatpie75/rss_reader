@@ -344,7 +344,7 @@ class UserFeedSubscription(models.Model):
 		return unicode(self.title)
 
 	class Meta:
-		ordering=['feed__title',]
+		ordering=['title',]
 		unique_together=[['user', 'feed'],]
 
 
