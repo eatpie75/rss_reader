@@ -265,7 +265,7 @@ class FeedManager
 	toggle_filter_read:()->
 		@filter_read=@filter_read^1
 		$('#filter-read').button('toggle')
-		@change_feed(@get_current_feed())
+		@change_feed(@get_current_feed(), @current_feed_is_category)
 	show_row:(row)->
 		row.children('div.article-content').css('display', 'inline-block')
 		row.addClass('active')
