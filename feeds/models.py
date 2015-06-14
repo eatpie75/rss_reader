@@ -71,7 +71,7 @@ class Feed(models.Model):
 			logger.error('exception')
 			logger.error(feed.bozo_exception)
 			if 'status' in feed:
-				logger.info(feed.status)
+				logger.info('feed status :{}'.format(feed.status))
 			self.success=False
 			self.last_error=str(feed.bozo_exception)
 			self.save()
