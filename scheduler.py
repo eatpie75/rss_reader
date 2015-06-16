@@ -7,11 +7,14 @@ django.setup()
 
 from apscheduler.schedulers.blocking import BlockingScheduler as Scheduler
 from datetime import datetime
-from django import db
 from django.conf import settings
 from feeds.models import Feed
 from pytz import timezone
 
+try:
+	from django.db import close_old_connections
+except ImportError:
+	from django.db import close_connection as close_old_connections
 
 logging.config.dictConfig(settings.LOGGING)
 logger=logging.getLogger('apscheduler.scheduler')
@@ -28,7 +31,7 @@ def update_feeds():
 			break
 	if i>0:
 		logger.info('{} new article(s)'.format(i))
-	db.close_connection()
+	db.close_old_connections()
 	return None
 
 
