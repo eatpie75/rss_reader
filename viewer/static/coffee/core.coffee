@@ -23,8 +23,12 @@ class FeedManager
 			)
 		)
 
-		@buttons={}
-		@bind(true, true)
+		@$={
+			'buttons':{}
+			'feed_list':$('.feed-list>ul')
+			'article_list':$('.article-list')
+		}
+		@init()
 	update_last_article:(data)->
 		for article in data
 			time=new Date(article.article.date_published)
@@ -77,12 +81,12 @@ class FeedManager
 			offset=$("#feed-#{feed}").offset().top-25
 		else
 			offset=$("#category-#{feed}").offset().top-25
-		ih=$('.feed-list>ul').innerHeight()-25
-		scroll=$('.feed-list>ul').scrollTop()
+		ih=@$.feed_list.innerHeight()-25
+		scroll=@$.feed_list.scrollTop()
 		if offset+14>ih
-			$('.feed-list>ul').scrollTop(scroll+(offset-ih)+14)
+			@$.feed_list.scrollTop(scroll+(offset-ih)+14)
 		else if offset<0
-			$('.feed-list>ul').scrollTop(scroll+offset)
+			@$.feed_list.scrollTop(scroll+offset)
 		if is_category
 			url="#{window.AJAX_BASE}feeds/category/#{feed.slice(1)}/articles"
 		else
@@ -100,8 +104,7 @@ class FeedManager
 				@current_feed_is_category=feed[0]=='c'
 				@set_current_feed()
 				$('.article-list>ul').html(Mark.up(window.templates['articles'], {'articles':data.articles}))
-				@bind()
-				$('.article-list').scrollTop(0)
+				@$.article_list.scrollTop(0)
 				if data.length==50
 					@more_articles_to_load=true
 				@update_unread(data.unread, feed)
@@ -113,7 +116,7 @@ class FeedManager
 			return
 		@busy=true
 		if @current_feed_is_category
-			url="#{window.AJAX_BASE}feeds/category/#{feed}/articles"
+			url="#{window.AJAX_BASE}feeds/category/#{feed.slice(1)}/articles"
 		else
 			url="#{window.AJAX_BASE}feeds/feeds/#{feed}/articles"
 		$.ajax({
@@ -123,7 +126,6 @@ class FeedManager
 			success:(data)=>
 				@update_last_article(data.articles)
 				$('.article-list>ul').append(Mark.up(window.templates['articles'], {'articles':data.articles}))
-				@bind()
 				if data.length<15
 					@more_articles_to_load=false
 				if @current_feed_is_category then @update_unread(data.unread, feed)
@@ -212,7 +214,6 @@ class FeedManager
 				for feed in data.feed_list
 					@feeds.add(new Feed(feed))
 				@render_feed_list()
-				@bind(true)
 				if cb?
 					cb()
 		})
@@ -230,8 +231,7 @@ class FeedManager
 				render+=Mark.up(window.template_includes.feed_row, feed)
 		for feed in @feeds.get_all_without_category()
 			render+=Mark.up(window.template_includes.feed_row, feed)
-		$('.feed-list>ul').html(render)
-		@bind(true)
+		@$.feed_list.html(render)
 		return
 	toggle_category:(id)->
 		row=$("#category-c#{id}")
@@ -432,87 +432,70 @@ class FeedManager
 					@change_feed(0)
 				)
 		})
-	bind:(feeds=false, initial=false)->
+	init:()->
 		_this=@
-		$('li.article-row>div.article-row-title').off('click')
-		$('li.article-row>div.article-row-title').on('click', (e)->
-			_this.toggle_article($(@), e)
-		)
-		$('li.article-row>div.article-content>div.article-content-footer>div').off('click')
-		$('li.article-row>div.article-content>div.article-content-footer>div').on('click', (e)->
+		$('.article-list>ul').on('click', 'div.article-content>div.article-content-footer>div', (e)->
 			row=$(@).parents('li')
 			id=row.data('id')
 			if row.hasClass('read')
 				_this.mark_unread(id)
 			else
 				_this.mark_read(id)
+		).on('click', 'div.article-row-title', (e)->
+			_this.toggle_article($(@), e)
 		)
-		if feeds
-			$('li.category-row').off('click')
-			$('li.category-row>div.marker').off('click')
-			$('li.feed-row').off('click')
-			$('li.feed-row>div.marker').off('click')
-			$('li.category-row').on('click', (e)->
-				# e.stopPropagation()
-				row=$(@)
-				id=row.data('id')
-				_this.change_feed("c#{id}", true)
-			)
-			$('li.category-row>div.marker').on('click', (e)->
-				e.stopImmediatePropagation()
-				row=$(@).parent()
-				id=row.data('id')
+
+		$('.feed-list>ul').on('click', 'li.feed-row, li.category-row', (e)->
+			row=$(@)
+			id=row.data('id')
+			category=row.hasClass('category-row')
+			if category
+				id='c' + id
+			_this.change_feed(id, category)
+		).on('click', '.marker', (e)->
+			e.stopImmediatePropagation()
+			row=$(@).parent()
+			id=row.data('id')
+			if row.hasClass('category-row')
 				_this.toggle_category(id)
-			)
-			$('li.feed-row').on('click', (e)->
-				# e.stopImmediatePropagation()
-				row=$(@)
-				id=row.data('id')
-				_this.change_feed(id)
-			)
-			$('li.feed-row>div.marker').on('click', (e)->
-				e.stopImmediatePropagation()
-				row=$(@).parent()
-				id=row.data('id')
+			else
 				_this.edit_feed(id)
-			)
-		if initial
-			@buttons.mark_all_read=$('#mark-all-read')
-			@buttons.mark_all_read.on('click', (e)->
-				_this.mark_all_read()
-			)
-			@buttons.add_feed=$('#add-feed')
-			@buttons.add_feed.on('click', (e)->
-				_this.add_feed()
-			)
-			@buttons.refresh_feed=$('#refresh-feed')
-			@buttons.refresh_feed.on('click', (e)->
-				_this.refresh_feed()
-			)
-			@buttons.filter_read=$('#filter-read')
-			@buttons.filter_read.on('click', (e)->
-				_this.toggle_filter_read()
-			)
-			$('body').keyup((e)->
-				e.stopPropagation()
-				e.preventDefault()
-				if e.which==74
-					_this.next_article()
-				else if e.which==75
-					_this.prev_article()
-			)
-			# @change_feed(@get_current_feed())
-			$('.article-list').scroll(()->
-				if $('.article-list').scrollTop()==0 or _this.busy
-					return
-				if $('.article-row:last').offset().top<$('.article-list').innerHeight()
-					if _this.last_article_visible==false
-						_this.load_more_articles()
-						_this.last_article_visible=true
-				else
-					_this.last_article_visible=false
-			)
-			setTimeout(check_for_new_articles, 30000)
+		)
+
+		@$.buttons.mark_all_read=$('#mark-all-read').on('click', ()=>
+			@mark_all_read()
+		)
+		@$.buttons.add_feed=$('#add-feed').on('click', ()=>
+			@add_feed()
+		)
+		@$.buttons.refresh_feed=$('#refresh-feed').on('click', ()=>
+			@refresh_feed()
+		)
+		@$.buttons.filter_read=$('#filter-read').on('click', ()=>
+			@toggle_filter_read()
+		)
+
+		$('body').keyup((e)->
+			e.stopPropagation()
+			e.preventDefault()
+			if e.which==74
+				_this.next_article()
+			else if e.which==75
+				_this.prev_article()
+		)
+
+		@$.article_list.scroll(()=>
+			if @$.article_list.scrollTop()==0 or @busy
+				return
+			if $('.article-row:last').offset().top<@$.article_list.innerHeight()
+				if @last_article_visible==false
+					@load_more_articles()
+					@last_article_visible=true
+			else
+				@last_article_visible=false
+		)
+
+		setTimeout(check_for_new_articles, 30000)
 
 class Feed
 	constructor:(data)->

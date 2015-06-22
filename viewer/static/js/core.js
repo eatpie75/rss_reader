@@ -25,8 +25,12 @@
           });
         };
       })(this));
-      this.buttons = {};
-      this.bind(true, true);
+      this.$ = {
+        'buttons': {},
+        'feed_list': $('.feed-list>ul'),
+        'article_list': $('.article-list')
+      };
+      this.init();
     }
 
     FeedManager.prototype.update_last_article = function(data) {
@@ -116,12 +120,12 @@
       } else {
         offset = $("#category-" + feed).offset().top - 25;
       }
-      ih = $('.feed-list>ul').innerHeight() - 25;
-      scroll = $('.feed-list>ul').scrollTop();
+      ih = this.$.feed_list.innerHeight() - 25;
+      scroll = this.$.feed_list.scrollTop();
       if (offset + 14 > ih) {
-        $('.feed-list>ul').scrollTop(scroll + (offset - ih) + 14);
+        this.$.feed_list.scrollTop(scroll + (offset - ih) + 14);
       } else if (offset < 0) {
-        $('.feed-list>ul').scrollTop(scroll + offset);
+        this.$.feed_list.scrollTop(scroll + offset);
       }
       if (is_category) {
         url = window.AJAX_BASE + "feeds/category/" + (feed.slice(1)) + "/articles";
@@ -144,8 +148,7 @@
             $('.article-list>ul').html(Mark.up(window.templates['articles'], {
               'articles': data.articles
             }));
-            _this.bind();
-            $('.article-list').scrollTop(0);
+            _this.$.article_list.scrollTop(0);
             if (data.length === 50) {
               _this.more_articles_to_load = true;
             }
@@ -164,7 +167,7 @@
       }
       this.busy = true;
       if (this.current_feed_is_category) {
-        url = window.AJAX_BASE + "feeds/category/" + feed + "/articles";
+        url = window.AJAX_BASE + "feeds/category/" + (feed.slice(1)) + "/articles";
       } else {
         url = window.AJAX_BASE + "feeds/feeds/" + feed + "/articles";
       }
@@ -182,7 +185,6 @@
             $('.article-list>ul').append(Mark.up(window.templates['articles'], {
               'articles': data.articles
             }));
-            _this.bind();
             if (data.length < 15) {
               _this.more_articles_to_load = false;
             }
@@ -337,7 +339,6 @@
               _this.feeds.add(new Feed(feed));
             }
             _this.render_feed_list();
-            _this.bind(true);
             if (cb != null) {
               return cb();
             }
@@ -372,8 +373,7 @@
         feed = ref1[k];
         render += Mark.up(window.template_includes.feed_row, feed);
       }
-      $('.feed-list>ul').html(render);
-      this.bind(true);
+      this.$.feed_list.html(render);
     };
 
     FeedManager.prototype.toggle_category = function(id) {
@@ -665,21 +665,10 @@
       });
     };
 
-    FeedManager.prototype.bind = function(feeds, initial) {
+    FeedManager.prototype.init = function() {
       var _this;
-      if (feeds == null) {
-        feeds = false;
-      }
-      if (initial == null) {
-        initial = false;
-      }
       _this = this;
-      $('li.article-row>div.article-row-title').off('click');
-      $('li.article-row>div.article-row-title').on('click', function(e) {
-        return _this.toggle_article($(this), e);
-      });
-      $('li.article-row>div.article-content>div.article-content-footer>div').off('click');
-      $('li.article-row>div.article-content>div.article-content-footer>div').on('click', function(e) {
+      $('.article-list>ul').on('click', 'div.article-content>div.article-content-footer>div', function(e) {
         var id, row;
         row = $(this).parents('li');
         id = row.data('id');
@@ -688,70 +677,64 @@
         } else {
           return _this.mark_read(id);
         }
+      }).on('click', 'div.article-row-title', function(e) {
+        return _this.toggle_article($(this), e);
       });
-      if (feeds) {
-        $('li.category-row').off('click');
-        $('li.category-row>div.marker').off('click');
-        $('li.feed-row').off('click');
-        $('li.feed-row>div.marker').off('click');
-        $('li.category-row').on('click', function(e) {
-          var id, row;
-          row = $(this);
-          id = row.data('id');
-          return _this.change_feed("c" + id, true);
-        });
-        $('li.category-row>div.marker').on('click', function(e) {
-          var id, row;
-          e.stopImmediatePropagation();
-          row = $(this).parent();
-          id = row.data('id');
+      $('.feed-list>ul').on('click', 'li.feed-row, li.category-row', function(e) {
+        var category, id, row;
+        row = $(this);
+        id = row.data('id');
+        category = row.hasClass('category-row');
+        if (category) {
+          id = 'c' + id;
+        }
+        return _this.change_feed(id, category);
+      }).on('click', '.marker', function(e) {
+        var id, row;
+        e.stopImmediatePropagation();
+        row = $(this).parent();
+        id = row.data('id');
+        if (row.hasClass('category-row')) {
           return _this.toggle_category(id);
-        });
-        $('li.feed-row').on('click', function(e) {
-          var id, row;
-          row = $(this);
-          id = row.data('id');
-          return _this.change_feed(id);
-        });
-        $('li.feed-row>div.marker').on('click', function(e) {
-          var id, row;
-          e.stopImmediatePropagation();
-          row = $(this).parent();
-          id = row.data('id');
+        } else {
           return _this.edit_feed(id);
-        });
-      }
-      if (initial) {
-        this.buttons.mark_all_read = $('#mark-all-read');
-        this.buttons.mark_all_read.on('click', function(e) {
+        }
+      });
+      this.$.buttons.mark_all_read = $('#mark-all-read').on('click', (function(_this) {
+        return function() {
           return _this.mark_all_read();
-        });
-        this.buttons.add_feed = $('#add-feed');
-        this.buttons.add_feed.on('click', function(e) {
+        };
+      })(this));
+      this.$.buttons.add_feed = $('#add-feed').on('click', (function(_this) {
+        return function() {
           return _this.add_feed();
-        });
-        this.buttons.refresh_feed = $('#refresh-feed');
-        this.buttons.refresh_feed.on('click', function(e) {
+        };
+      })(this));
+      this.$.buttons.refresh_feed = $('#refresh-feed').on('click', (function(_this) {
+        return function() {
           return _this.refresh_feed();
-        });
-        this.buttons.filter_read = $('#filter-read');
-        this.buttons.filter_read.on('click', function(e) {
+        };
+      })(this));
+      this.$.buttons.filter_read = $('#filter-read').on('click', (function(_this) {
+        return function() {
           return _this.toggle_filter_read();
-        });
-        $('body').keyup(function(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          if (e.which === 74) {
-            return _this.next_article();
-          } else if (e.which === 75) {
-            return _this.prev_article();
-          }
-        });
-        $('.article-list').scroll(function() {
-          if ($('.article-list').scrollTop() === 0 || _this.busy) {
+        };
+      })(this));
+      $('body').keyup(function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (e.which === 74) {
+          return _this.next_article();
+        } else if (e.which === 75) {
+          return _this.prev_article();
+        }
+      });
+      this.$.article_list.scroll((function(_this) {
+        return function() {
+          if (_this.$.article_list.scrollTop() === 0 || _this.busy) {
             return;
           }
-          if ($('.article-row:last').offset().top < $('.article-list').innerHeight()) {
+          if ($('.article-row:last').offset().top < _this.$.article_list.innerHeight()) {
             if (_this.last_article_visible === false) {
               _this.load_more_articles();
               return _this.last_article_visible = true;
@@ -759,9 +742,9 @@
           } else {
             return _this.last_article_visible = false;
           }
-        });
-        return setTimeout(check_for_new_articles, 30000);
-      }
+        };
+      })(this));
+      return setTimeout(check_for_new_articles, 30000);
     };
 
     return FeedManager;
