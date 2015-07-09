@@ -7,7 +7,7 @@
 @purple:#a523b9;
 
 
-html, body, body>div.container {
+html, body, body > .container {
 	height:100%;
 	min-width:300px;
 	overflow:hidden;
@@ -19,18 +19,18 @@ html, body, body>div.container {
 
 
 .screen-height {
+	position:relative;
 	height:100%;
 	overflow:auto;
-	position:relative;
 }
 
 .feed-control {
-	background:#fff;
-	height:22px;
-	margin-left:40px;
-	padding-right:13px;
 	position:absolute;
 	z-index:1;
+	height:22px;
+	padding-right:13px;
+	margin-left:40px;
+	background:#fff;
 }
 
 .feed-list {
@@ -39,19 +39,19 @@ html, body, body>div.container {
 			&.update {
 				.animation(3s linear 0s alternate none infinite pulse)
 			}
-			&.feed-row > div.marker {
+			&.feed-row > .marker {
 				display:none;
 			}
 			&.category-row {
-				& > div.folder {
+				& > .folder {
 					padding-right:5px;
 				}
-				& > div.marker {
+				& > .marker {
+					top:0;
 					display:inline-block;
 					float:right;
 					height:100%;
 					padding-top:2px;
-					top:0px;
 				}
 			}
 			&.active {
@@ -61,15 +61,15 @@ html, body, body>div.container {
 				padding-left:15px;
 			}
 			&:hover {
-				&.feed-row > div.marker {
+				&.feed-row > .marker {
 					&:hover {
 						background-color:yellow;
 					}
+					top:0;
 					display:inline-block;
 					float:right;
 					height:100%;
 					padding-top:2px;
-					top:0px;
 				}
 				background-color:paleturquoise;
 			}
@@ -81,27 +81,27 @@ html, body, body>div.container {
 				max-width:83%;
 				overflow-x:hidden;
 				text-overflow:ellipsis;
-				vertical-align:bottom;
 				white-space:nowrap;
+				vertical-align:bottom;
 			}
 			& > small {
 			}
+			height:14px;
 			cursor:pointer;
-			height:14px
 		}
 		& .glyphicon {
 			z-index:0;
 		}
 		height:100%;
-		list-style:none;
 		padding-top:25px;
 		overflow:auto;
+		list-style:none;
 	}
-	border-right:1px solid fade(gray, 25%);
-	font-size:10px;
-	margin-left:0px;
+	padding-right:0;
+	margin-left:0;
 	overflow:hidden;
-	padding-right:0px;
+	font-size:10px;
+	border-right:1px solid fade(gray, 25%);
 }
 @keyframes pulse {
 	from {color:@gray-dark;}
@@ -112,34 +112,34 @@ html, body, body>div.container {
 		& > li {
 			&.article-row {
 				& > div {}
-				& > div.article-row-title {
+				& > .article-row-title {
 					& > .feed-icon {
 						margin:1px 0 0 1px;
 					}
-					& > div.article-feed-name {
+					& > .article-feed-name {
 						display:inline-block;
+						width:170px;
 						overflow:hidden;
 						text-overflow:ellipsis;
-						vertical-align:middle;
 						white-space:nowrap;
+						vertical-align:middle;
 						@media (max-width: @screen-sm-max) {
 							display:none;
 						}
-						width:170px;
 					}
-					& > div.article-title {
+					& > .article-title {
 						display:inline-block;
+						width:525px;
 						overflow:hidden;
 						text-overflow:ellipsis;
-						vertical-align:middle;
 						white-space:nowrap;
+						vertical-align:middle;
 						@media (max-width: @screen-sm-max) {
 							max-width:66%;
 							width:auto;
 						}
-						width:525px;
 					}
-					& > div.article-date {
+					& > .article-date {
 						display:inline-block;
 						float:right;
 						margin-top:2px;
@@ -147,64 +147,64 @@ html, body, body>div.container {
 					&:hover {
 						background-color:azure;
 					}
+					width:100%;
 					height:18px;
 					line-height:15px;
-					width:100%;
 				}
-				& > div.article-content {
-					& > div.article-content-title {
+				& > .article-content {
+					& > .article-content-title {
 						& > h2 {
-							line-height:30px;
 							margin:0;
+							line-height:30px;
 						}
 					}
-					& > div.article-content-main {
+					& > .article-content-main {
 						& img {
 							max-width:100%
 						}
 						overflow-x:auto;
 					}
-					& > div.article-content-footer {
+					& > .article-content-footer {
 						& > div {
 							cursor:pointer;
 						}
-						padding-bottom:3px;
 						padding-top:3px;
+						padding-bottom:3px;
 					}
-					border-left:0;
-					border-right:0;
-					border-radius:0;
-					cursor:auto;
 					display:none;
-					margin-bottom:0;
 					width:100%;
+					margin-bottom:0;
+					cursor:auto;
+					border-right:0;
+					border-left:0;
+					border-radius:0;
 				}
 				&.active {
-					& > div.article-row-title {
+					& > .article-row-title {
 						&:hover {
 							background-color:darken(azure, 5%)
 						}
 						background-color:azure;
 					}
 				}
-				cursor:pointer;
 				line-height:14px;
+				cursor:pointer;
 			}
 			&.read {
 				&:hover {}
-				div.article-row-title {
+				.article-row-title {
 					color:fade(@text-color, 50%);
 				}
 			}
+			margin:0 0 -1px 0;
+			list-style:none;
 			border:1px solid fade(gray, 25%);
 			border-left:none;
-			list-style:none;
-			margin:0 0 -1px 0;
 		}
-		padding-left:0px;
+		padding-left:0;
 	}
-	margin-left:0px;
-	padding:0px;
+	padding:0;
+	margin-left:0;
 }
 
 #modal_delete {
